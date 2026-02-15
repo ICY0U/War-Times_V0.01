@@ -1,0 +1,28 @@
+[INFO]  === War Times V0.01 ===
+[INFO]  Starting up...
+[INFO]  Window created (maximized): 1920x1009
+[INFO]  D3D11 Device created (Feature Level b100)
+[INFO]  GPU: NVIDIA GeForce RTX 2080 Ti
+[INFO]    VRAM: 11027 MB  |  Shared: 16346 MB
+[INFO]  MSAA 4x enabled (quality level 0)
+[INFO]  Sampler states created (point / linear / aniso-16x)
+[INFO]  DirectX 11 Renderer initialized (1920x1009, MSAA: 4x)
+[INFO]  Loading shaders from exe directory
+[WARN]  Shader compile warning: Common.hlsli(203,20): warning X4000: use of potentially uninitialized variable (CalcShadow)
+
+[WARN]  Shader compile warning: Common.hlsli(203,20): warning X4000: use of potentially uninitialized variable (CalcShadow)
+
+[INFO]  Shadow map created (2048x2048)
+[INFO]  Post-processing initialized (1920x1009)
+[INFO]  SSAO initialized (1920x1009, kernel=64)
+[INFO]  Debug renderer initialized (max 65536 lines)
+[INFO]  Graphics resources initialized
+[INFO]  Editor UI initialized (ImGui 1.92.6 WIP, docking enabled)
+[INFO]  Level Editor window created (900x700)
+[INFO]  Application initialized successfully
+[INFO]  Level Editor window shutdown
+[INFO]  Editor UI shutdown
+[INFO]  Debug renderer shutdown
+[INFO]  Renderer shutdown
+[INFO]  Application shutdown
+[INFO]  Exiting with code 0

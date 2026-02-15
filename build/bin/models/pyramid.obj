@@ -1,0 +1,16 @@
+# Pyramid - simple 4-sided pyramid
+
+v  0.0  1.0  0.0
+v -0.5  0.0  0.5
+v  0.5  0.0  0.5
+v  0.5  0.0 -0.5
+v -0.5  0.0 -0.5
+
+# Side faces
+f 1 2 3
+f 1 3 4
+f 1 4 5
+f 1 5 2
+
+# Bottom face
+f 5 4 3 2

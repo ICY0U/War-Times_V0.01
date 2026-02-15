@@ -1,0 +1,45 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureSettings": {},
+    "cmake.debugConfig": {
+        "cwd": "${workspaceFolder}/build/bin",
+        "args": [],
+        "console": "integratedTerminal"
+    },
+    "cmake.launchBehavior": "reuseTerminal",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.hlsl": "hlsl"
+    },
+    "colorTabs.buttons": [
+        {
+            "label": "$(play) Run",
+            "command": "build/bin/WarTimes.exe",
+            "color": "#4EC9B0",
+            "tooltip": "Run War Times",
+            "priority": 1000
+        },
+        {
+            "label": "$(tools) Build",
+            "command": "cmake --build build --config Debug",
+            "color": "#569CD6",
+            "tooltip": "Build Debug",
+            "priority": 999
+        },
+        {
+            "label": "$(rocket) Build & Run",
+            "command": "cmake --build build --config Debug; if ($LASTEXITCODE -eq 0) { .\\build\\bin\\WarTimes.exe }",
+            "color": "#CE9178",
+            "tooltip": "Build and launch the game",
+            "priority": 998
+        },
+        {
+            "label": "$(gear) Configure",
+            "command": "cmake -S . -B build -G \"Visual Studio 17 2022\" -A x64",
+            "color": "#DCDCAA",
+            "tooltip": "Configure CMake",
+            "priority": 997
+        }
+    ]
+}
