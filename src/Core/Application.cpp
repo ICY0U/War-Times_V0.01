@@ -1140,7 +1140,11 @@ void Application::Render() {
         m_cbPerObject.BindBoth(ctx, 1);
 
         if (e.meshType == MeshType::Cube) {
-            if (whiteTex) whiteTex->Bind(ctx, 1);
+            Texture* ct = nullptr;
+            if (!e.textureName.empty())
+                ct = ResourceManager::Get().GetTexture(e.textureName);
+            if (ct) ct->Bind(ctx, 1);
+            else if (whiteTex) whiteTex->Bind(ctx, 1);
             m_cubeMesh.Draw(ctx);
             m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
         } else if (e.meshType == MeshType::Custom) {

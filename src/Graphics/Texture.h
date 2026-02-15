@@ -20,6 +20,9 @@ public:
     // Load from a BMP image file
     bool LoadFromBMP(ID3D11Device* device, const std::wstring& filepath);
 
+    // Load from a PNG image file (uses WIC)
+    bool LoadFromPNG(ID3D11Device* device, const std::wstring& filepath);
+
     // Bind to pixel shader texture slot
     void Bind(ID3D11DeviceContext* context, UINT slot) const;
     void BindVS(ID3D11DeviceContext* context, UINT slot) const;

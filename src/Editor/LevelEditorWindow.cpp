@@ -974,7 +974,10 @@ void LevelEditorWindow::RenderEntities(ID3D11DeviceContext* ctx, const EditorSta
         m_res.cbPerObject->BindBoth(ctx, 1);
 
         if (e.meshType == MeshType::Cube) {
-            if (wt) wt->Bind(ctx, 1);
+            Texture* ct = nullptr;
+            if (!e.textureName.empty())
+                ct = ResourceManager::Get().GetTexture(e.textureName);
+            (ct ? ct : wt)->Bind(ctx, 1);
             m_res.cubeMesh->Draw(ctx);
         } else if (e.meshType == MeshType::Custom) {
             Texture* mt = nullptr;
@@ -1673,7 +1676,8 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
     // Helper: spawn a cube preset entity
     auto spawnCube = [&](const char* label, float sx, float sy, float sz,
                          float r, float g, float b, float hp,
-                         float yOff = 0.0f, int debris = 6, float debrisS = 0.3f) {
+                         float yOff = 0.0f, int debris = 6, float debrisS = 0.3f,
+                         const char* texFolder = nullptr) {
         XMFLOAT3 sp = getSpawnPos(yOff);
         int idx = scene.AddEntity(label, MeshType::Cube);
         auto& e = scene.GetEntity(idx);
@@ -1683,12 +1687,17 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
         e.color[0] = r; e.color[1] = g; e.color[2] = b; e.color[3] = 1.0f;
         e.health = hp; e.maxHealth = hp;
         e.debrisCount = debris; e.debrisScale = debrisS;
+        if (texFolder && texFolder[0]) {
+            std::string texKey = std::string(texFolder) + "texture";
+            if (ResourceManager::Get().GetTexture(texKey))
+                e.textureName = texKey;
+        }
         state.selectedEntity = idx;
         m_unsavedChanges = true;
     };
 
     // Helper: spawn a custom model entity
-    auto spawnModel = [&](const std::string& modelKey, float yOff = 0.0f) {
+    auto spawnModel = [&](const std::string& modelKey, const char* texFolder, float yOff = 0.0f) {
         std::string display = modelKey.substr(modelKey.rfind('/') + 1);
         XMFLOAT3 sp = getSpawnPos(yOff);
         int idx = scene.AddEntity("", MeshType::Custom);
@@ -1696,8 +1705,14 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
         e.meshName = modelKey;
         e.name = display + "_" + std::to_string(idx);
         e.position[0] = sp.x; e.position[1] = sp.y; e.position[2] = sp.z;
-        e.color[0] = 0.55f; e.color[1] = 0.52f; e.color[2] = 0.48f; e.color[3] = 1.0f;
+        e.color[0] = 1.0f; e.color[1] = 1.0f; e.color[2] = 1.0f; e.color[3] = 1.0f;
         e.health = 200.0f; e.maxHealth = 200.0f;
+        // Auto-assign texture from matching category folder
+        if (texFolder && texFolder[0]) {
+            std::string texKey = std::string(texFolder) + "texture";
+            if (ResourceManager::Get().GetTexture(texKey))
+                e.textureName = texKey;
+        }
         state.selectedEntity = idx;
         m_unsavedChanges = true;
     };
@@ -1706,13 +1721,13 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
     auto allModels = ResourceManager::Get().GetModelNames();
 
     // Category definitions
-    struct PrefabCat { const char* label; const char* folder; ImVec4 col; ImVec4 hover; };
+    struct PrefabCat { const char* label; const char* folder; const char* texFolder; ImVec4 col; ImVec4 hover; };
     const PrefabCat cats[] = {
-        { "Walls",      "PreFabs/Walls/",      {0.22f,0.20f,0.16f,1}, {0.30f,0.27f,0.22f,1} },
-        { "Floors",     "PreFabs/Floors/",     {0.18f,0.22f,0.18f,1}, {0.24f,0.30f,0.24f,1} },
-        { "Structures", "PreFabs/Structures/", {0.20f,0.18f,0.22f,1}, {0.28f,0.24f,0.30f,1} },
-        { "Doors",      "PreFabs/Doors/",      {0.22f,0.18f,0.18f,1}, {0.30f,0.24f,0.24f,1} },
-        { "Props",      "PreFabs/Props/",      {0.24f,0.20f,0.14f,1}, {0.32f,0.27f,0.18f,1} },
+        { "Walls",      "PreFabs/Walls/",      "Walls/",       {0.22f,0.20f,0.16f,1}, {0.30f,0.27f,0.22f,1} },
+        { "Floors",     "PreFabs/Floors/",     "Floors/",      {0.18f,0.22f,0.18f,1}, {0.24f,0.30f,0.24f,1} },
+        { "Structures", "PreFabs/Structures/", "Walls/",       {0.20f,0.18f,0.22f,1}, {0.28f,0.24f,0.30f,1} },
+        { "Doors",      "PreFabs/Doors/",      "Walls/",       {0.22f,0.18f,0.18f,1}, {0.30f,0.24f,0.24f,1} },
+        { "Props",      "PreFabs/Props/",      "Props/",       {0.24f,0.20f,0.14f,1}, {0.32f,0.27f,0.18f,1} },
     };
 
     for (int c = 0; c < 5; c++) {
@@ -1790,7 +1805,7 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
                     char selLabel[128];
                     snprintf(selLabel, sizeof(selLabel), "  %s##%s", display.c_str(), mname.c_str());
                     if (ImGui::Selectable(selLabel)) {
-                        spawnModel(mname, 0.0f);
+                        spawnModel(mname, cats[c].texFolder, 0.0f);
                     }
                     anyModel = true;
                 }

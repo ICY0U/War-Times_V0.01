@@ -458,9 +458,11 @@ def convert_fbx_to_obj(fbx_path, obj_path=None, normalize=True, target_size=1.0)
     total_polys = sum(len(g['polygons']) for g in geometries)
 
     # Compute scale and center
+    # Center X/Y (FBX), but place bottom at Z=0 (FBX Z → output Y after swap)
+    # so models sit on the ground plane
     scale = 1.0
     min_v, max_v = compute_bounds(geometries)
-    center = ((min_v[0]+max_v[0])/2, (min_v[1]+max_v[1])/2, (min_v[2]+max_v[2])/2)
+    center = ((min_v[0]+max_v[0])/2, (min_v[1]+max_v[1])/2, min_v[2])
     if normalize:
         scale = auto_scale(geometries, target_size)
 

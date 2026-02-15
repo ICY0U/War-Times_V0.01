@@ -58,7 +58,9 @@ public:
     bool CreateColorTexture(const std::string& name, float r, float g, float b, float a = 1.0f);
     // Load a BMP texture from file, cache by name
     bool LoadTextureBMP(const std::string& name, const std::wstring& filepath);
-    // Scan a directory for .bmp files and load them (keyed by stem name, e.g. "Guns/Gun_A")
+    // Load a PNG texture from file, cache by name
+    bool LoadTexturePNG(const std::string& name, const std::wstring& filepath);
+    // Scan a directory for .bmp/.png files and load them
     int  LoadTextureDirectory(const std::wstring& dirPath);
     Texture* GetTexture(const std::string& name);
     void     ReleaseTexture(const std::string& name);

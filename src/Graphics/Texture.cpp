@@ -4,6 +4,8 @@
 #include <cstring>
 #include <fstream>
 #include <vector>
+#include <wincodec.h>
+#pragma comment(lib, "windowscodecs.lib")
 
 namespace WT {
 
@@ -111,6 +113,67 @@ bool Texture::LoadFromBMP(ID3D11Device* device, const std::wstring& filepath) {
     bool ok = CreateFromData(device, rgba.data(), width, height);
     if (ok) {
         LOG_INFO("Texture: Loaded BMP %dx%d (%d bpp)", width, height, bitsPerPixel);
+    }
+    return ok;
+}
+
+bool Texture::LoadFromPNG(ID3D11Device* device, const std::wstring& filepath) {
+    // Use Windows Imaging Component (WIC) to decode PNG
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    (void)hr; // Don't care if already initialized
+
+    ComPtr<IWICImagingFactory> wicFactory;
+    hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+                          IID_PPV_ARGS(wicFactory.GetAddressOf()));
+    if (FAILED(hr)) {
+        LOG_ERROR("Texture: Failed to create WIC factory (0x%08X)", hr);
+        return false;
+    }
+
+    ComPtr<IWICBitmapDecoder> decoder;
+    hr = wicFactory->CreateDecoderFromFilename(filepath.c_str(), nullptr,
+                                                GENERIC_READ, WICDecodeMetadataCacheOnLoad,
+                                                decoder.GetAddressOf());
+    if (FAILED(hr)) {
+        LOG_ERROR("Texture: Failed to open PNG file (0x%08X)", hr);
+        return false;
+    }
+
+    ComPtr<IWICBitmapFrameDecode> frame;
+    hr = decoder->GetFrame(0, frame.GetAddressOf());
+    if (FAILED(hr)) {
+        LOG_ERROR("Texture: Failed to get PNG frame (0x%08X)", hr);
+        return false;
+    }
+
+    // Convert to RGBA 32bpp
+    ComPtr<IWICFormatConverter> converter;
+    hr = wicFactory->CreateFormatConverter(converter.GetAddressOf());
+    if (FAILED(hr)) return false;
+
+    hr = converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA,
+                               WICBitmapDitherTypeNone, nullptr, 0.0,
+                               WICBitmapPaletteTypeCustom);
+    if (FAILED(hr)) {
+        LOG_ERROR("Texture: Failed to convert PNG to RGBA (0x%08X)", hr);
+        return false;
+    }
+
+    UINT width, height;
+    converter->GetSize(&width, &height);
+
+    UINT stride = width * 4;
+    UINT bufferSize = stride * height;
+    std::vector<uint8_t> rgba(bufferSize);
+    hr = converter->CopyPixels(nullptr, stride, bufferSize, rgba.data());
+    if (FAILED(hr)) {
+        LOG_ERROR("Texture: Failed to copy PNG pixels (0x%08X)", hr);
+        return false;
+    }
+
+    bool ok = CreateFromData(device, rgba.data(), static_cast<int>(width), static_cast<int>(height));
+    if (ok) {
+        LOG_INFO("Texture: Loaded PNG %ux%u", width, height);
     }
     return ok;
 }

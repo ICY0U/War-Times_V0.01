@@ -204,6 +204,24 @@ bool ResourceManager::LoadTextureBMP(const std::string& name, const std::wstring
     return true;
 }
 
+bool ResourceManager::LoadTexturePNG(const std::string& name, const std::wstring& filepath) {
+    auto it = m_textures.find(name);
+    if (it != m_textures.end()) {
+        LOG_INFO("Texture '%s' already loaded", name.c_str());
+        return true;
+    }
+
+    Resource<Texture> res;
+    res.name = name;
+    if (!res.data.LoadFromPNG(m_device, filepath)) {
+        LOG_ERROR("Failed to load PNG texture '%s'", name.c_str());
+        return false;
+    }
+    m_textures[name] = std::move(res);
+    LOG_INFO("Loaded PNG texture: %s", name.c_str());
+    return true;
+}
+
 int ResourceManager::LoadTextureDirectory(const std::wstring& dirPath) {
     namespace fs = std::filesystem;
 
@@ -217,19 +235,23 @@ int ResourceManager::LoadTextureDirectory(const std::wstring& dirPath) {
         if (!entry.is_regular_file()) continue;
         auto ext = entry.path().extension().wstring();
         std::transform(ext.begin(), ext.end(), ext.begin(), [](wchar_t c) { return static_cast<wchar_t>(::towlower(c)); });
-        if (ext != L".bmp") continue;
+
+        bool isBmp = (ext == L".bmp");
+        bool isPng = (ext == L".png");
+        if (!isBmp && !isPng) continue;
 
         // Build name matching model naming: "Guns/AssaultRiffle_A"
         fs::path relPath = fs::relative(entry.path(), dirPath);
         std::string name = relPath.replace_extension("").string();
         std::replace(name.begin(), name.end(), '\\', '/');
 
-        if (LoadTextureBMP(name, entry.path().wstring())) {
-            count++;
-        }
+        bool ok = false;
+        if (isBmp) ok = LoadTextureBMP(name, entry.path().wstring());
+        else       ok = LoadTexturePNG(name, entry.path().wstring());
+        if (ok) count++;
     }
 
-    LOG_INFO("Loaded %d BMP textures from directory (recursive)", count);
+    LOG_INFO("Loaded %d textures from directory (recursive)", count);
     return count;
 }
 
