@@ -172,7 +172,7 @@ struct EditorState {
 
     // FPS Arms
     // Character model
-    float charModelScale         = 0.7f;     // FBX model scale (ufbx normalizes to meters)
+    float charModelScale         = 0.7f;     // Character model scale
 
     // Weapon System
     int   weaponType             = 0;        // WeaponType enum

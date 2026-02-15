@@ -32,10 +32,6 @@ set(IMGUI_HEADERS
     ${IMGUI_DIR}/backends/imgui_impl_dx11.h
 )
 
-# ---- ufbx (single-file FBX loader) ----
-set(UFBX_SOURCES ${CMAKE_SOURCE_DIR}/src/ThirdParty/ufbx.c)
-set_source_files_properties(${UFBX_SOURCES} PROPERTIES LANGUAGE C)
-
 # Collect source files
 file(GLOB_RECURSE SOURCES
     "src/*.cpp"
@@ -60,7 +56,6 @@ add_executable(${PROJECT_NAME} WIN32
     ${SHADERS}
     ${IMGUI_SOURCES}
     ${IMGUI_HEADERS}
-    ${UFBX_SOURCES}
 )
 
 # Include directories
@@ -89,6 +84,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 
 # Copy models to output directory after build
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/models
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/models
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/models
@@ -101,6 +98,16 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         ${CMAKE_SOURCE_DIR}/textures
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/textures
     COMMENT "Copying textures to output directory"
+)
+
+# Copy levels to output directory after build
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/levels
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/levels
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/levels
+    COMMENT "Copying levels to output directory"
 )
 
 # Compiler warnings

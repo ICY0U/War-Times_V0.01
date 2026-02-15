@@ -12,6 +12,7 @@
 #include "Graphics/ConstantBuffer.h"
 #include "Graphics/DebugRenderer.h"
 #include "Graphics/Texture.h"
+#include "Util/MathHelpers.h"
 #include "Core/ResourceManager.h"
 #include "Core/Entity.h"
 

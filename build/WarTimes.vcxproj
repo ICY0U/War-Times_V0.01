@@ -122,7 +122,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory</Message>
+      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory	Copying levels to output directory</Message>
       <Command>setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/shaders" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/shaders"
 if %errorlevel% neq 0 goto :cmEnd
@@ -133,6 +133,8 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/models"
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/models" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/models"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -143,6 +145,17 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/textures" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/textures"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/levels"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/levels" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/levels"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -208,7 +221,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory</Message>
+      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory	Copying levels to output directory</Message>
       <Command>setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/shaders" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/shaders"
 if %errorlevel% neq 0 goto :cmEnd
@@ -219,6 +232,8 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/models"
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/models" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/models"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -229,6 +244,17 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/textures" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/textures"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/levels"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/levels" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/levels"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -294,7 +320,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory</Message>
+      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory	Copying levels to output directory</Message>
       <Command>setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/shaders" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/shaders"
 if %errorlevel% neq 0 goto :cmEnd
@@ -305,6 +331,8 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/models"
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/models" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/models"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -315,6 +343,17 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/textures" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/textures"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/levels"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/levels" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/MinSizeRel/levels"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -379,7 +418,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory</Message>
+      <Message>Copying shaders to output directory	Copying models to output directory	Copying textures to output directory	Copying levels to output directory</Message>
       <Command>setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/shaders" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/shaders"
 if %errorlevel% neq 0 goto :cmEnd
@@ -390,6 +429,8 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/models"
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/models" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/models"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -400,6 +441,17 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd
 setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/textures" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/textures"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/levels"
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory "D:/D_Documents/game/2026/War Times_V0.01/levels" "D:/D_Documents/game/2026/War Times_V0.01/build/bin/RelWithDebInfo/levels"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -509,8 +561,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Editor\LevelEditorWindow.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Editor\LevelFile.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\FX\ParticleSystem.h" />
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\FPSArmsAnimator.cpp" />
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\FPSArmsAnimator.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\HUD.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\HUD.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\WeaponSystem.cpp" />
@@ -520,12 +570,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ConstantBuffer.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.h" />
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FBXModel.cpp" />
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FBXModel.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.h" />
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\OBJLoader.cpp" />
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\OBJLoader.h" />
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.cpp" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\PostProcess.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\PostProcess.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Renderer.cpp" />
@@ -536,13 +584,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Shader.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ShadowMap.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ShadowMap.h" />
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\SkinnedMesh.cpp" />
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\SkinnedMesh.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h" />
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\ThirdParty\ufbx.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Util\Log.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Util\MathHelpers.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\main.cpp" />
@@ -563,8 +608,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\SSAOPS.hlsl">
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\ShadowVS.hlsl">
-    </None>
-    <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\SkinnedVS.hlsl">
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\SkyPS.hlsl">
     </None>
@@ -589,12 +632,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\thirdparty\imgui\imstb_truetype.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\thirdparty\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\thirdparty\imgui\backends\imgui_impl_dx11.h" />
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\ThirdParty\ufbx.c">
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">CompileAsC</CompileAs>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">CompileAsC</CompileAs>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">CompileAsC</CompileAs>
-      <CompileAs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">CompileAsC</CompileAs>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

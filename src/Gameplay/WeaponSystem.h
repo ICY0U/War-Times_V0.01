@@ -63,6 +63,7 @@ struct WeaponDef {
 
     // Gun model (loaded mesh). If empty, uses cube-based viewmodel.
     std::string gunModelName;
+    std::string gunTextureName;  // Texture name from ResourceManager (e.g. "Gun/Palette")
     float modelScale       = 0.5f;    // Scale applied to the model
     float modelOffsetX     = 0.0f;    // Fine-tune model position offset
     float modelOffsetY     = 0.0f;
@@ -113,6 +114,25 @@ struct WeaponDef {
     XMFLOAT3 leftGripSocket    = { 0.0f, -0.02f,  0.18f };  // Foregrip/handguard area
     XMFLOAT3 leftGripRotation  = { 0.0f, 0.0f, 0.0f };      // Extra hand rotation (degrees)
     XMFLOAT3 elbowPoleOffset   = { 0.0f, -0.3f, 0.0f };     // Elbow hint (downward by default)
+
+    // ---- Per-weapon muzzle flash FX ----
+    struct MuzzleFlashLayer {
+        float scaleX    = 0.04f;   // Base size X
+        float scaleY    = 0.04f;   // Base size Y
+        float scaleZ    = 0.02f;   // Base size Z (depth)
+        float offsetFwd = 0.0f;    // Forward offset from muzzle tip
+        float offsetUp  = 0.0f;    // Upward offset
+        float offsetRight = 0.0f;  // Right offset
+        float rollDeg   = 0.0f;    // Extra roll rotation (degrees)
+        float r = 1.0f, g = 0.9f, b = 0.4f; // Color
+        float fadeSpeed = 1.0f;    // How quickly this layer fades (multiplier)
+        float growSpeed = 0.5f;    // How much this layer grows as it fades (0=none, 1=double)
+    };
+    static constexpr int kMaxFlashLayers = 6;
+    MuzzleFlashLayer flashLayers[kMaxFlashLayers];
+    int flashLayerCount       = 0;      // Active layers (0 = use default single flash)
+    float flashDuration       = 0.05f;  // Per-weapon override
+    float flashMuzzleOffset   = 0.0f;   // Extra forward offset for muzzle position
 };
 
 // ============================================================
@@ -196,6 +216,7 @@ public:
         XMFLOAT3 rotation;  // Degrees
         XMFLOAT3 scale;
         std::string meshName;
+        std::string textureName;
         float color[4];
     };
     const ViewmodelMesh& GetViewmodelMesh() const { return m_viewmodelMesh; }

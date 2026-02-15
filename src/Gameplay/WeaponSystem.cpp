@@ -43,12 +43,14 @@ void WeaponSystem::Init() {
     rifle.stockLength   = 0.25f;
     rifle.bodyWidth     = 0.1f;
     rifle.bodyHeight    = 0.12f;
-    rifle.gunModelName  = "Guns/AssaultRiffle_A";
-    rifle.modelScale    = 0.45f;
-    rifle.modelOffsetX  = -0.13f;
-    rifle.modelOffsetY  = 0.08f;
-    rifle.modelOffsetZ  = -0.17f;
-    rifle.modelRotY     = -90.0f;
+    rifle.gunModelName  = "Gun/AssaultRifle1";
+    rifle.gunTextureName = "Guns/Palette -Gun";
+    rifle.modelScale    = 1.0f;
+    rifle.modelOffsetX  = -0.14f;
+    rifle.modelOffsetY  = 0.07f;
+    rifle.modelOffsetZ  = -0.19f;
+    rifle.modelRotX     = 3.0f;
+    rifle.modelRotY     = 3.0f;
     // Rifle hands — two-handed grip, relative to gun model origin
     rifle.rightHandFwd   = -0.02f;
     rifle.rightHandRight =  0.01f;
@@ -59,15 +61,28 @@ void WeaponSystem::Init() {
     rifle.rightArmDown   =  0.05f;
     rifle.rightArmPitch  =  12.0f;
     rifle.rightArmScaleX = ARM_SX; rifle.rightArmScaleY = ARM_SY; rifle.rightArmScaleZ = ARM_SZ;
-    rifle.leftHandFwd    =  0.22f;
-    rifle.leftHandRight  = -0.01f;
-    rifle.leftHandDown   =  0.06f;
+    rifle.leftHandFwd    =  0.15f;
+    rifle.leftHandRight  =  0.00f;
+    rifle.leftHandDown   =  0.04f;
     rifle.leftHandScaleX = HAND_SX; rifle.leftHandScaleY = HAND_SY; rifle.leftHandScaleZ = HAND_SZ;
-    rifle.leftArmFwd     =  0.12f;
-    rifle.leftArmRight   = -0.04f;
-    rifle.leftArmDown    =  0.04f;
+    rifle.leftArmFwd     =  0.06f;
+    rifle.leftArmRight   = -0.02f;
+    rifle.leftArmDown    =  0.02f;
     rifle.leftArmPitch   = -5.0f;
     rifle.leftArmScaleX  = ARM_SX; rifle.leftArmScaleY = ARM_SY; rifle.leftArmScaleZ = ARM_SZ;
+
+    // Rifle muzzle flash: sharp directional burst — bright core + elongated forward spike + side flares
+    rifle.flashDuration     = 0.045f;
+    rifle.flashMuzzleOffset = 0.0f;
+    rifle.flashLayerCount   = 4;
+    // Layer 0: Hot white core (small, bright)
+    rifle.flashLayers[0] = { 0.025f, 0.025f, 0.03f,  0.0f, 0.0f, 0.0f,  0.0f,   1.0f, 1.0f, 0.95f,  1.2f, 0.3f };
+    // Layer 1: Forward spike (elongated along barrel)
+    rifle.flashLayers[1] = { 0.015f, 0.015f, 0.08f,  0.03f, 0.0f, 0.0f, 0.0f,   1.0f, 0.85f, 0.3f,  1.0f, 0.6f };
+    // Layer 2: Side flare (horizontal, rotated 90 deg)
+    rifle.flashLayers[2] = { 0.04f, 0.012f, 0.015f,  0.0f, 0.0f, 0.0f, 0.0f,    1.0f, 0.7f, 0.2f,   1.5f, 0.4f };
+    // Layer 3: Vertical flare (cross pattern with horizontal)
+    rifle.flashLayers[3] = { 0.012f, 0.04f, 0.015f,  0.0f, 0.0f, 0.0f, 0.0f,    1.0f, 0.7f, 0.2f,   1.5f, 0.4f };
 
     // ---- Pistol ----
     auto& pistol = m_weaponDefs[static_cast<int>(WeaponType::Pistol)];
@@ -90,31 +105,44 @@ void WeaponSystem::Init() {
     pistol.stockLength   = 0.0f;
     pistol.bodyWidth     = 0.08f;
     pistol.bodyHeight    = 0.14f;
-    pistol.gunModelName  = "Guns/Gun_A";
-    pistol.modelScale    = 0.35f;
-    pistol.modelOffsetX  = -0.10f;
-    pistol.modelOffsetY  =  0.05f;
-    pistol.modelOffsetZ  = -0.12f;
-    pistol.modelRotY     = -90.0f;
-    // Pistol hands — right hand on grip, left hand wraps below for support
-    pistol.rightHandFwd   =  0.0f;
+    pistol.gunModelName  = "Gun/Pistol1";
+    pistol.gunTextureName = "Guns/Palette -Gun";
+    pistol.modelScale    = 1.0f;
+    pistol.modelOffsetX  = -0.13f;
+    pistol.modelOffsetY  =  0.07f;
+    pistol.modelOffsetZ  = -0.13f;
+    pistol.modelRotX     = 4.0f;
+    pistol.modelRotY     = 0.0f;
+    // Pistol hands — right hand on grip, left hand wraps under for support
+    pistol.rightHandFwd   = -0.01f;
     pistol.rightHandRight =  0.01f;
-    pistol.rightHandDown  =  0.08f;
+    pistol.rightHandDown  =  0.05f;
     pistol.rightHandScaleX = HAND_SX; pistol.rightHandScaleY = HAND_SY; pistol.rightHandScaleZ = HAND_SZ;
-    pistol.rightArmFwd    = -0.08f;
+    pistol.rightArmFwd    = -0.09f;
     pistol.rightArmRight  =  0.03f;
-    pistol.rightArmDown   =  0.05f;
+    pistol.rightArmDown   =  0.03f;
     pistol.rightArmPitch  =  15.0f;
     pistol.rightArmScaleX = ARM_SX; pistol.rightArmScaleY = ARM_SY; pistol.rightArmScaleZ = ARM_SZ;
-    pistol.leftHandFwd    =  0.02f;
-    pistol.leftHandRight  = -0.03f;
-    pistol.leftHandDown   =  0.07f;
+    pistol.leftHandFwd    =  0.01f;
+    pistol.leftHandRight  = -0.02f;
+    pistol.leftHandDown   =  0.05f;
     pistol.leftHandScaleX = HAND_SX; pistol.leftHandScaleY = HAND_SY; pistol.leftHandScaleZ = HAND_SZ;
-    pistol.leftArmFwd     = -0.04f;
-    pistol.leftArmRight   = -0.05f;
-    pistol.leftArmDown    =  0.05f;
+    pistol.leftArmFwd     = -0.05f;
+    pistol.leftArmRight   = -0.04f;
+    pistol.leftArmDown    =  0.03f;
     pistol.leftArmPitch   =  5.0f;
     pistol.leftArmScaleX  = ARM_SX; pistol.leftArmScaleY = ARM_SY; pistol.leftArmScaleZ = ARM_SZ;
+
+    // Pistol muzzle flash: punchy round burst — bright core + wide round bloom
+    pistol.flashDuration     = 0.04f;
+    pistol.flashMuzzleOffset = 0.0f;
+    pistol.flashLayerCount   = 3;
+    // Layer 0: Hot white-yellow core
+    pistol.flashLayers[0] = { 0.02f, 0.02f, 0.02f,   0.0f, 0.0f, 0.0f,  0.0f,   1.0f, 1.0f, 0.9f,   1.3f, 0.2f };
+    // Layer 1: Round orange bloom (equal XY, shallow Z)
+    pistol.flashLayers[1] = { 0.035f, 0.035f, 0.01f,  0.0f, 0.0f, 0.0f, 45.0f,  1.0f, 0.7f, 0.15f,  1.0f, 0.8f };
+    // Layer 2: Tiny forward spit
+    pistol.flashLayers[2] = { 0.01f, 0.01f, 0.04f,    0.015f, 0.0f, 0.0f, 0.0f,  1.0f, 0.9f, 0.4f,   1.5f, 0.5f };
 
     // ---- Shotgun ----
     auto& shotgun = m_weaponDefs[static_cast<int>(WeaponType::Shotgun)];
@@ -162,6 +190,21 @@ void WeaponSystem::Init() {
     shotgun.leftArmDown    =  0.04f;
     shotgun.leftArmPitch   = -3.0f;
     shotgun.leftArmScaleX  = ARM_SX; shotgun.leftArmScaleY = ARM_SY; shotgun.leftArmScaleZ = ARM_SZ;
+
+    // Shotgun muzzle flash: big violent blast — huge fireball + wide spread + sparks
+    shotgun.flashDuration     = 0.07f;
+    shotgun.flashMuzzleOffset = 0.0f;
+    shotgun.flashLayerCount   = 5;
+    // Layer 0: Massive white-hot core
+    shotgun.flashLayers[0] = { 0.04f, 0.04f, 0.04f,   0.0f, 0.0f, 0.0f,  0.0f,   1.0f, 1.0f, 0.9f,   1.0f, 0.4f };
+    // Layer 1: Big forward fireball
+    shotgun.flashLayers[1] = { 0.03f, 0.03f, 0.12f,   0.04f, 0.0f, 0.0f, 0.0f,   1.0f, 0.75f, 0.2f,  0.8f, 0.9f };
+    // Layer 2: Wide horizontal blast
+    shotgun.flashLayers[2] = { 0.07f, 0.02f, 0.025f,  0.0f, 0.0f, 0.0f, 0.0f,    1.0f, 0.6f, 0.1f,   1.2f, 0.6f };
+    // Layer 3: Vertical cross blast
+    shotgun.flashLayers[3] = { 0.02f, 0.06f, 0.025f,  0.0f, 0.0f, 0.0f, 0.0f,    1.0f, 0.6f, 0.1f,   1.2f, 0.6f };
+    // Layer 4: Upper-right spark/ember
+    shotgun.flashLayers[4] = { 0.015f, 0.015f, 0.02f,  0.02f, 0.015f, 0.01f, 25.0f, 1.0f, 0.5f, 0.05f, 2.0f, 1.5f };
 
     // Start with rifle
     SwitchWeapon(WeaponType::Rifle);
@@ -279,7 +322,8 @@ void WeaponSystem::Fire(Camera& camera, PhysicsWorld* physics, AISystem* aiSyste
 
     m_currentAmmo--;
     m_fireTimer = def.fireRate;
-    m_muzzleFlashTimer = m_settings.muzzleFlashDuration;
+    // Use per-weapon flash duration if defined, otherwise global setting
+    m_muzzleFlashTimer = def.flashLayerCount > 0 ? def.flashDuration : m_settings.muzzleFlashDuration;
     m_justFired = true;
 
     // Reset last hit
@@ -548,6 +592,7 @@ void WeaponSystem::UpdateViewmodel(float dt, const Camera& camera, const Charact
         m_viewmodelMesh.rotation = { pitchDeg + def.modelRotX, yawDeg + def.modelRotY, def.modelRotZ };
         m_viewmodelMesh.scale = { def.modelScale, def.modelScale, def.modelScale };
         m_viewmodelMesh.meshName = def.gunModelName;
+        m_viewmodelMesh.textureName = def.gunTextureName;
         memcpy(m_viewmodelMesh.color, s.gunMetalColor, sizeof(float) * 4);
     } else {
         // Clear mesh info when using cubes
@@ -691,27 +736,62 @@ void WeaponSystem::UpdateViewmodel(float dt, const Camera& camera, const Charact
 
     } // end arms/hands block
 
-    // ---- Muzzle flash (bright cube at barrel tip) ----
+    // ---- Muzzle flash FX (per-weapon layered flash) ----
     if (m_muzzleFlashTimer > 0.0f) {
-        float muzzleDist = def.barrelLength * 0.75f + def.barrelLength * 0.25f;
-        XMFLOAT3 muzzlePos = {
-            vmBase.x + camFwd.x * muzzleDist,
-            vmBase.y + camFwd.y * muzzleDist - def.bodyHeight * 0.15f,
-            vmBase.z + camFwd.z * muzzleDist
+        float baseDist = def.barrelLength + def.flashMuzzleOffset;
+        // Muzzle tip position
+        XMFLOAT3 muzzleTip = {
+            vmBase.x + camFwd.x * baseDist,
+            vmBase.y + camFwd.y * baseDist - def.bodyHeight * 0.15f,
+            vmBase.z + camFwd.z * baseDist
         };
 
-        float flashAlpha = m_muzzleFlashTimer / s.muzzleFlashDuration;
-        float flashSize = s.muzzleFlashScale * (0.5f + flashAlpha * 0.5f);
+        float duration = def.flashDuration > 0.0f ? def.flashDuration : s.muzzleFlashDuration;
+        float t = m_muzzleFlashTimer / duration; // 1.0 → 0.0
 
-        ViewmodelPart part;
-        part.transform.position = muzzlePos;
-        part.transform.rotation = { pitchDeg, yawDeg, 45.0f };
-        part.transform.scale = { flashSize, flashSize, flashSize * 0.5f };
-        part.color[0] = s.muzzleFlashColor[0];
-        part.color[1] = s.muzzleFlashColor[1];
-        part.color[2] = s.muzzleFlashColor[2];
-        part.color[3] = flashAlpha;
-        m_viewmodelParts.push_back(part);
+        if (def.flashLayerCount > 0) {
+            // Per-weapon multi-layer flash
+            for (int i = 0; i < def.flashLayerCount && i < WeaponDef::kMaxFlashLayers; ++i) {
+                const auto& layer = def.flashLayers[i];
+                float layerAlpha = t * layer.fadeSpeed;
+                if (layerAlpha > 1.0f) layerAlpha = 1.0f;
+                if (layerAlpha <= 0.0f) continue;
+
+                float grow = 1.0f + (1.0f - t) * layer.growSpeed;
+                float sx = layer.scaleX * grow;
+                float sy = layer.scaleY * grow;
+                float sz = layer.scaleZ * grow;
+
+                // Position offset from muzzle tip
+                XMFLOAT3 layerPos = {
+                    muzzleTip.x + camFwd.x * layer.offsetFwd + camUp.x * layer.offsetUp + camRight.x * layer.offsetRight,
+                    muzzleTip.y + camFwd.y * layer.offsetFwd + camUp.y * layer.offsetUp + camRight.y * layer.offsetRight,
+                    muzzleTip.z + camFwd.z * layer.offsetFwd + camUp.z * layer.offsetUp + camRight.z * layer.offsetRight
+                };
+
+                ViewmodelPart part;
+                part.transform.position = layerPos;
+                part.transform.rotation = { pitchDeg, yawDeg, layer.rollDeg };
+                part.transform.scale = { sx, sy, sz };
+                part.color[0] = layer.r;
+                part.color[1] = layer.g;
+                part.color[2] = layer.b;
+                part.color[3] = layerAlpha;
+                m_viewmodelParts.push_back(part);
+            }
+        } else {
+            // Fallback: single cube flash (legacy)
+            float flashSize = s.muzzleFlashScale * (0.5f + t * 0.5f);
+            ViewmodelPart part;
+            part.transform.position = muzzleTip;
+            part.transform.rotation = { pitchDeg, yawDeg, 45.0f };
+            part.transform.scale = { flashSize, flashSize, flashSize * 0.5f };
+            part.color[0] = s.muzzleFlashColor[0];
+            part.color[1] = s.muzzleFlashColor[1];
+            part.color[2] = s.muzzleFlashColor[2];
+            part.color[3] = t;
+            m_viewmodelParts.push_back(part);
+        }
     }
 }
 

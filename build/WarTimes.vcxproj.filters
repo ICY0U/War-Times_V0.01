@@ -34,9 +34,6 @@
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Editor\LevelEditorWindow.cpp">
       <Filter>Source\Editor</Filter>
     </ClCompile>
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\FPSArmsAnimator.cpp">
-      <Filter>Source\Gameplay</Filter>
-    </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\HUD.cpp">
       <Filter>Source\Gameplay</Filter>
     </ClCompile>
@@ -49,13 +46,10 @@
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FBXModel.cpp">
-      <Filter>Source\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\OBJLoader.cpp">
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\PostProcess.cpp">
@@ -71,9 +65,6 @@
       <Filter>Source\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ShadowMap.cpp">
-      <Filter>Source\Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\SkinnedMesh.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.cpp">
@@ -105,9 +96,6 @@
     </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\thirdparty\imgui\backends\imgui_impl_dx11.cpp">
       <Filter>ThirdParty\ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\ThirdParty\ufbx.c">
-      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -153,9 +141,6 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\FX\ParticleSystem.h">
       <Filter>Source\FX</Filter>
     </ClInclude>
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\FPSArmsAnimator.h">
-      <Filter>Source\Gameplay</Filter>
-    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\HUD.h">
       <Filter>Source\Gameplay</Filter>
     </ClInclude>
@@ -171,13 +156,10 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FBXModel.h">
-      <Filter>Source\Graphics</Filter>
-    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\OBJLoader.h">
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\PostProcess.h">
@@ -195,17 +177,11 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ShadowMap.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\SkinnedMesh.h">
-      <Filter>Source\Graphics</Filter>
-    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h">
       <Filter>Source\Physics</Filter>
-    </ClInclude>
-    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\ThirdParty\ufbx.h">
-      <Filter>Source\ThirdParty</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Util\Log.h">
       <Filter>Source\Util</Filter>
@@ -269,9 +245,6 @@
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\ShadowVS.hlsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\SkinnedVS.hlsl">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\SkyPS.hlsl">
       <Filter>Shaders</Filter>
     </None>
@@ -291,9 +264,6 @@
     </Filter>
     <Filter Include="Source">
       <UniqueIdentifier>{64484C88-75D0-3493-8DD0-53282FD9D3DE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{D7DA520B-D243-38E8-91D6-DF360F0BA2B9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\AI">
       <UniqueIdentifier>{D4293EB9-13E8-32C1-8E68-3B948090BAA0}</UniqueIdentifier>
@@ -315,9 +285,6 @@
     </Filter>
     <Filter Include="Source\Physics">
       <UniqueIdentifier>{0232C067-82A2-3753-9209-F93704C6B5C7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source\ThirdParty">
-      <UniqueIdentifier>{92AB4F79-9797-3093-A545-270165FAE8DA}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Util">
       <UniqueIdentifier>{0D1F2A90-13D2-3E40-9A00-B720282B4130}</UniqueIdentifier>

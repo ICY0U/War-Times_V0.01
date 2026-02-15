@@ -50,6 +50,10 @@ public:
     void SetDepthEnabled(bool enable);
     void SetAlphaBlending(bool enable);
 
+    // Rasterizer state accessors
+    ID3D11RasterizerState* GetSolidState()  const { return m_rasterizerSolid.Get(); }
+    ID3D11RasterizerState* GetNoCullState() const { return m_rasterizerNoCull.Get(); }
+
     // VSync
     void SetVSync(bool enable) { m_vsync = enable; }
     bool IsVSync() const { return m_vsync; }
@@ -108,6 +112,7 @@ private:
     // Rasterizer states
     ComPtr<ID3D11RasterizerState>   m_rasterizerSolid;
     ComPtr<ID3D11RasterizerState>   m_rasterizerWireframe;
+    ComPtr<ID3D11RasterizerState>   m_rasterizerNoCull;
 
     // Depth stencil states
     ComPtr<ID3D11DepthStencilState> m_depthEnabled;

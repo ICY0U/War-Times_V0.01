@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "Util/Log.h"
+#include "Editor/LevelFile.h"
 #include <cstdio>
 #include <algorithm>
 
@@ -191,6 +192,21 @@ bool Application::Init(HINSTANCE hInstance, int width, int height) {
     // Start with cursor free so the editor is usable
     m_input.SetCursorLocked(false);
 
+    // Auto-load default level if it exists
+    {
+        std::wstring levelsDir = m_exeDir + L"levels/";
+        std::wstring defaultLevelW = levelsDir + L"test_arena.wtlevel";
+        // Convert wide path to narrow for LevelFile
+        char defaultLevel[MAX_PATH];
+        WideCharToMultiByte(CP_UTF8, 0, defaultLevelW.c_str(), -1, defaultLevel, MAX_PATH, nullptr, nullptr);
+        if (std::filesystem::exists(defaultLevel)) {
+            LevelFile::Load(std::string(defaultLevel), m_editorState.scene);
+            m_editorState.entityDirty = true;
+            LOG_INFO("Auto-loaded default level: %s (%d entities)",
+                     defaultLevel, m_editorState.scene.GetEntityCount());
+        }
+    }
+
     LOG_INFO("Application initialized successfully");
     return true;
 }
@@ -245,26 +261,12 @@ bool Application::InitGraphics() {
         return false;
     // No pixel shader — depth-only rendering
 
-    // Skinned mesh shader (for character model with bone animation)
-    D3D11_INPUT_ELEMENT_DESC skinnedLayout[] = {
-        { "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL",       0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD",     0, DXGI_FORMAT_R32G32_FLOAT,       0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "BLENDINDICES", 0, DXGI_FORMAT_R8G8B8A8_UINT,      0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "BLENDWEIGHT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
-    if (!m_skinnedShader.LoadVS(device, shaderDir + L"SkinnedVS.hlsl", "VSMain", skinnedLayout, _countof(skinnedLayout)))
-        LOG_WARN("Skinned shader not loaded — character will use fallback");
-    else
-        m_skinnedShader.LoadPS(device, shaderDir + L"VoxelPS.hlsl", "PSMain");
-
-    // Create constant buffers (PerFrame b0, PerObject b1, Lighting b2, Sky b3, Shadow b4, Bones b7)
+    // Create constant buffers (PerFrame b0, PerObject b1, Lighting b2, Sky b3, Shadow b4)
     if (!m_cbPerFrame.Init(device))  return false;
     if (!m_cbPerObject.Init(device)) return false;
     if (!m_cbLighting.Init(device))  return false;
     if (!m_cbSky.Init(device))       return false;
     if (!m_cbShadow.Init(device))    return false;
-    if (!m_cbBones.Init(device))     return false;
 
     // Shadow map
     if (!m_shadowMap.Init(device, 2048)) return false;
@@ -311,40 +313,21 @@ bool Application::InitGraphics() {
     // Resource Manager
     ResourceManager::Get().Init(device, shaderDir);
 
-    // Load OBJ models from models/ directory next to exe
-    std::wstring modelsDir = m_exeDir + L"models/";
-    int modelCount = ResourceManager::Get().LoadOBJDirectory(modelsDir);
-    LOG_INFO("Loaded %d OBJ models", modelCount);
+    // Load models (.mesh binary files)
+    // Use source directory (relative to exe: ../../models/) so hot-reload picks up
+    // new exports from Blender without needing a rebuild
+    std::wstring modelsDir = m_exeDir + L"../../models/";
+    int meshCount = ResourceManager::Get().LoadMeshDirectory(modelsDir);
+    LOG_INFO("Loaded %d models", meshCount);
 
-    // Load BMP textures from models/ directory (same naming convention as models)
-    int texCount = ResourceManager::Get().LoadTextureDirectory(modelsDir);
-    // Also load from textures/ directory
+    // Load textures
+    int texCount = 0;
     std::wstring texturesDir = m_exeDir + L"textures/";
     texCount += ResourceManager::Get().LoadTextureDirectory(texturesDir);
     LOG_INFO("Loaded %d textures", texCount);
 
     // Create default white texture for untextured meshes
     ResourceManager::Get().CreateColorTexture("_white", 1.0f, 1.0f, 1.0f, 1.0f);
-
-    // Load character model (FBX with skeleton + animation)
-    {
-        std::wstring charModelPath = modelsDir + L"Character/Low_P_Bot_0201.fbx";
-        std::wstring charWalkPath  = modelsDir + L"Character/Walking.fbx";
-
-        m_characterMeshLoaded = m_characterModel.LoadFromFile(device, charModelPath);
-        if (m_characterMeshLoaded) {
-            LOG_INFO("Character FBX loaded: %u verts, %d bones",
-                     m_characterModel.GetVertexCount(), m_characterModel.GetBoneCount());
-
-            // Load walk animation from separate FBX
-            if (m_characterModel.LoadAnimation(charWalkPath, "walk"))
-                LOG_INFO("Walk animation loaded");
-            else
-                LOG_WARN("Walk animation not found");
-        } else {
-            LOG_WARN("Character FBX not found — using cube body parts");
-        }
-    }
 
     LOG_INFO("Graphics resources initialized");
     return true;
@@ -565,6 +548,11 @@ void Application::Update(float dt) {
         m_voxelShader.Reload(m_renderer.GetDevice());
     }
 
+    // F9: Force model hot-reload (rescan models directory)
+    if (!editorWantsKeyboard && m_input.IsKeyPressed(VK_F9)) {
+        ResourceManager::Get().ReloadMeshDirectory();
+    }
+
     // Auto hot-reload check every 2 seconds
     m_hotReloadTimer += dt;
     if (m_hotReloadTimer >= 2.0f) {
@@ -572,6 +560,7 @@ void Application::Update(float dt) {
         if (m_voxelShader.HasFileChanged()) {
             m_voxelShader.Reload(m_renderer.GetDevice());
         }
+        ResourceManager::Get().ReloadMeshDirectory();
     }
 
     // Camera rotation from mouse:
@@ -1202,105 +1191,8 @@ void Application::Render() {
         m_cbPerObject.BindBoth(ctx, 1);
     }
 
-    // ---- Draw Character Body (3rd-person FBX model with skinning) ----
-    if (m_characterMode && m_editorState.charShowBody && m_characterMeshLoaded) {
-        // Update animation based on movement
-        if (m_character.IsMoving()) {
-            if (m_characterModel.HasAnimation("walk") && !m_characterModel.IsAnimating())
-                m_characterModel.PlayAnimation("walk");
-        } else {
-            if (m_characterModel.IsAnimating())
-                m_characterModel.StopAnimation();
-        }
-        m_characterModel.Update(m_timer.DeltaTime());
-
-        // Position the character at feet position, facing camera yaw
-        XMFLOAT3 charPos = m_character.GetPosition();
-        float yawRad = m_camera.GetYaw();
-
-        float sc = m_editorState.charModelScale;
-        XMMATRIX charScale = XMMatrixScaling(sc, sc, sc);
-        XMMATRIX charRot = XMMatrixRotationY(yawRad);
-        XMMATRIX charTranslate = XMMatrixTranslation(charPos.x, charPos.y, charPos.z);
-        XMMATRIX charWorld = charScale * charRot * charTranslate;
-
-        // Upload bone matrices
-        if (m_characterModel.GetBoneCount() > 0) {
-            CBBones bonesData = {};
-            const auto& finalMats = m_characterModel.GetFinalBoneMatrices();
-            int count = (std::min)((int)finalMats.size(), MAX_BONES);
-            for (int i = 0; i < count; i++)
-                bonesData.BoneMatrices[i] = finalMats[i];
-            // Fill remaining with identity (transposed)
-            XMFLOAT4X4 identity;
-            XMStoreFloat4x4(&identity, XMMatrixIdentity());
-            for (int i = count; i < MAX_BONES; i++)
-                bonesData.BoneMatrices[i] = identity;
-            m_cbBones.Update(ctx, bonesData);
-            m_cbBones.BindVS(ctx, 7);
-
-            // Use skinned shader
-            m_skinnedShader.Bind(ctx);
-        } else {
-            // No bones — use voxel shader
-            m_voxelShader.Bind(ctx);
-        }
-
-        CBPerObject charObj = {};
-        XMStoreFloat4x4(&charObj.World, XMMatrixTranspose(charWorld));
-        XMStoreFloat4x4(&charObj.WorldInvTranspose, XMMatrixInverse(nullptr, charWorld));
-        charObj.ObjectColor = { 0.6f, 0.6f, 0.6f, 1.0f }; // Gray base color (FBX has no vertex colors)
-        m_cbPerObject.Update(ctx, charObj);
-        m_cbPerObject.BindBoth(ctx, 1);
-
-        if (whiteTex) whiteTex->Bind(ctx, 1);
-
-        m_characterModel.Draw(ctx);
-        m_renderer.TrackDrawCall(m_characterModel.GetIndexCount());
-
-        // Draw a gun clone at the character's right hand position (3rd person)
-        if (m_weaponSystem.HasGunModel()) {
-            m_voxelShader.Bind(ctx); // Switch back to voxel shader for gun
-
-            const auto& vm = m_weaponSystem.GetViewmodelMesh();
-            Mesh* gunMesh = ResourceManager::Get().GetMesh(vm.meshName);
-            if (gunMesh) {
-                // Approximate right hand position in model space
-                float handX = 0.5f;    // Right side
-                float handY = 0.7f;    // Shoulder height (meters, post-scale in model space)
-                float handZ = 0.15f;   // Slightly forward
-                XMVECTOR handLocal = XMVectorSet(handX, handY, handZ, 1.0f);
-                XMVECTOR handWorld = XMVector3Transform(handLocal, charWorld);
-
-                float gunScale3p = sc * 0.8f;
-                XMMATRIX gunS = XMMatrixScaling(gunScale3p, gunScale3p, gunScale3p);
-                XMMATRIX gunR = XMMatrixRotationY(yawRad);
-                XMMATRIX gunT = XMMatrixTranslationFromVector(handWorld);
-                XMMATRIX gun3rdWorld = gunS * gunR * gunT;
-
-                CBPerObject gun3pObj = {};
-                XMStoreFloat4x4(&gun3pObj.World, XMMatrixTranspose(gun3rdWorld));
-                XMStoreFloat4x4(&gun3pObj.WorldInvTranspose, XMMatrixInverse(nullptr, gun3rdWorld));
-                gun3pObj.ObjectColor = { vm.color[0], vm.color[1], vm.color[2], vm.color[3] };
-                m_cbPerObject.Update(ctx, gun3pObj);
-                m_cbPerObject.BindBoth(ctx, 1);
-
-                Texture* gunTex = ResourceManager::Get().GetTexture(vm.meshName);
-                if (gunTex) gunTex->Bind(ctx, 1);
-                else if (whiteTex) whiteTex->Bind(ctx, 1);
-
-                gunMesh->Draw(ctx);
-                m_renderer.TrackDrawCall(gunMesh->GetIndexCount());
-            }
-        }
-
-        // Reset ObjectColor to zero for subsequent draws
-        objData.ObjectColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-        m_cbPerObject.Update(ctx, objData);
-        m_cbPerObject.BindBoth(ctx, 1);
-    }
-    // Fallback: draw cube body parts if OBJ model not loaded
-    else if (m_characterMode && m_editorState.charShowBody && !m_characterMeshLoaded) {
+    // ---- Draw Character Body (cube body parts) ----
+    if (m_characterMode && m_editorState.charShowBody) {
         m_voxelShader.Bind(ctx);
 
         auto drawBodyPart = [&](const Character::BodyPart& bp, const float color[4]) {
@@ -1360,17 +1252,26 @@ void Application::Render() {
 
                     CBPerObject vmObj = {};
                     XMStoreFloat4x4(&vmObj.World, XMMatrixTranspose(gunWorld));
-                    XMStoreFloat4x4(&vmObj.WorldInvTranspose, XMMatrixInverse(nullptr, gunWorld));
-                    vmObj.ObjectColor = { vm.color[0], vm.color[1], vm.color[2], vm.color[3] };
+                    XMStoreFloat4x4(&vmObj.WorldInvTranspose, XMMatrixTranspose(InverseTranspose(gunWorld)));
+                    vmObj.ObjectColor = { 0, 0, 0, 0 }; // alpha=0 → use vertex colors
                     m_cbPerObject.Update(ctx, vmObj);
                     m_cbPerObject.BindBoth(ctx, 1);
 
-                    Texture* gunTex = ResourceManager::Get().GetTexture(vm.meshName);
+                    // Bind gun texture if specified, otherwise white fallback
+                    Texture* gunTex = nullptr;
+                    if (!vm.textureName.empty())
+                        gunTex = ResourceManager::Get().GetTexture(vm.textureName);
+                    if (!gunTex)
+                        gunTex = ResourceManager::Get().GetTexture(vm.meshName);
                     if (gunTex) gunTex->Bind(ctx, 1);
                     else if (whiteTex) whiteTex->Bind(ctx, 1);
 
+                    // Use no-cull rasterizer for gun mesh (safety net for mixed winding)
+                    ctx->RSSetState(m_renderer.GetNoCullState());
                     gunMesh->Draw(ctx);
                     m_renderer.TrackDrawCall(gunMesh->GetIndexCount());
+                    // Restore normal solid rasterizer
+                    ctx->RSSetState(m_renderer.GetSolidState());
                 }
             }
         }
@@ -1596,7 +1497,6 @@ void Application::Shutdown() {
     m_ssao.Shutdown();
     m_shadowMap.Shutdown();
     m_defaultWhite.Release();
-    m_characterModel.Release();
     m_groundMesh.Release();
     m_cubeMesh.Release();
     m_renderer.Shutdown();

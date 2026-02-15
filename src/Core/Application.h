@@ -12,7 +12,6 @@
 #include "Graphics/ShadowMap.h"
 #include "Graphics/PostProcess.h"
 #include "Graphics/SSAO.h"
-#include "Graphics/FBXModel.h"
 #include "Core/Timer.h"
 #include "Core/Input.h"
 #include "Core/Entity.h"
@@ -110,11 +109,6 @@ private:
     // Default textures
     Texture     m_defaultWhite;
 
-    // Character model (FBX with skeleton + animation)
-    FBXModel    m_characterModel;
-    Shader      m_skinnedShader;
-    ConstantBuffer<CBBones> m_cbBones;
-    bool        m_characterMeshLoaded = false;
 
     // Editor systems
     EditorUI     m_editorUI;

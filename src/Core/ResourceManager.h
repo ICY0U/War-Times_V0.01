@@ -5,10 +5,11 @@
 #include <algorithm>
 #include <unordered_map>
 #include <memory>
+#include <filesystem>
 #include "Graphics/Mesh.h"
+#include "Graphics/MeshLoader.h"
 #include "Graphics/Shader.h"
 #include "Graphics/Texture.h"
-#include "Graphics/OBJLoader.h"
 
 namespace WT {
 
@@ -18,6 +19,8 @@ struct Resource {
     T           data;
     std::string name;
     int         refCount = 1;
+    std::filesystem::path filePath;       // source file (for hot-reload)
+    std::filesystem::file_time_type lastWrite{}; // last modification time
 };
 
 // ---- Resource Manager — centralized loading, caching, and hot-reload ----
@@ -29,17 +32,17 @@ public:
     void Shutdown();
 
     // ---- Mesh Resources ----
-    // Store a pre-built mesh under a name
-    void RegisterMesh(const std::string& name, Mesh&& mesh);
+    // Store a pre-built mesh under a name (with optional source file for hot-reload)
+    void RegisterMesh(const std::string& name, Mesh&& mesh,
+                      const std::filesystem::path& srcPath = {});
     Mesh* GetMesh(const std::string& name);
     void  ReleaseMesh(const std::string& name);
 
-    // Load an OBJ model file, create a Mesh, and register it
-    bool LoadOBJ(const std::string& name, const std::wstring& filepath,
-                 const DirectX::XMFLOAT4& defaultColor = { 0.6f, 0.6f, 0.6f, 1.0f });
+    // Load all .mesh files from a directory tree
+    int LoadMeshDirectory(const std::wstring& dirPath);
 
-    // Scan a directory for .obj files and load them all
-    int  LoadOBJDirectory(const std::wstring& dirPath);
+    // Hot-reload: rescan models dir — load new, reload changed, remove deleted
+    int ReloadMeshDirectory();
 
     // Get list of loaded model names (for editor dropdown)
     std::vector<std::string> GetModelNames() const;
@@ -95,6 +98,7 @@ private:
 
     ID3D11Device* m_device = nullptr;
     std::wstring  m_shaderDir;
+    std::wstring  m_modelsDir;  // stored for hot-reload rescan
 
     std::unordered_map<std::string, Resource<Mesh>>    m_meshes;
     std::unordered_map<std::string, Resource<Shader>>  m_shaders;

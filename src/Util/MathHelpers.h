@@ -50,16 +50,6 @@ struct VertexPosNormalColor {
     XMFLOAT2 TexCoord;   // UV for texture mapping (0,0 for untextured)
 };
 
-// Skinned vertex for GPU bone animation (FPS arms, etc.)
-// Must match SkinnedVSInput in SkinnedVS.hlsl
-struct VertexSkinned {
-    XMFLOAT3 Position;      // 0   (12 bytes)
-    XMFLOAT3 Normal;        // 12  (12 bytes)
-    XMFLOAT2 TexCoord;      // 24  (8 bytes)
-    uint8_t  BoneIndices[4]; // 32  (4 bytes)
-    XMFLOAT4 BoneWeights;   // 36  (16 bytes)
-};                           // Total: 52 bytes
-
 // ============================================================
 // Constant buffer structures — must match Common.hlsli exactly
 // All must be 16-byte aligned
@@ -127,12 +117,6 @@ struct CBShadow {
     float    ShadowNormalBias;
     float    ShadowIntensity;
     float    ShadowMapSize;
-};
-
-// b7 — Bone matrices for GPU skinning — bound VS
-static constexpr int MAX_BONES = 64;
-struct CBBones {
-    XMFLOAT4X4 BoneMatrices[MAX_BONES];
 };
 
 // ============================================================

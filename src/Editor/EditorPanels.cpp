@@ -35,7 +35,7 @@ void EditorPanels::Init() {
     memset(m_frameTimeHistory, 0, sizeof(m_frameTimeHistory));
     m_historyIdx = 0;
     AddLog(LogEntry::Info, "War Times Editor initialized");
-    AddLog(LogEntry::Info, "F6: toggle editor | F7: level editor | RMB-drag: camera");
+    AddLog(LogEntry::Info, "F6: toggle editor | F7: level editor | F9: reload models | RMB-drag: camera");
 }
 
 void EditorPanels::AddLog(LogEntry::Level level, const char* fmt, ...) {
@@ -225,8 +225,15 @@ void EditorPanels::DrawOutliner(EditorState& state, Renderer& renderer, Camera& 
         if (ImGui::Checkbox("Level Editor Window (F7)", &edOpen)) {
             if (editor) editor->SetOpen(edOpen);
         }
-        SectionSeparator();
     }
+
+    // Reload Models button
+    if (ImGui::Button("Reload Models (F9)")) {
+        ResourceManager::Get().ReloadMeshDirectory();
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("%d meshes", ResourceManager::Get().GetMeshCount());
+    SectionSeparator();
 
     SectionPhysics(state);
     SectionNavGrid(state);
@@ -426,6 +433,9 @@ void EditorPanels::SectionEntities(EditorState& state) {
         }
         ImGui::SameLine();
     }
+
+    // Reload models button (hot-swap from disk)
+    // (Moved to main Outliner panel — see DrawOutliner)
 
     if (count > 0 && state.selectedEntity >= 0) {
         if (ImGui::Button("Dup", ImVec2(40, 0))) {

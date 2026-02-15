@@ -350,6 +350,11 @@ bool Renderer::CreateRasterizerStates() {
     hr = m_device->CreateRasterizerState(&rd, m_rasterizerWireframe.GetAddressOf());
     HR_CHECK(hr, "CreateRasterizerState (wireframe)");
 
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE;
+    hr = m_device->CreateRasterizerState(&rd, m_rasterizerNoCull.GetAddressOf());
+    HR_CHECK(hr, "CreateRasterizerState (no-cull)");
+
     return true;
 }
 

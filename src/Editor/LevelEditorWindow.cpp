@@ -1581,13 +1581,13 @@ void LevelEditorWindow::DrawEntitySection(EditorState& state) {
         ImGui::Spacing();
 
         PropertyLabel("Position");
-        if (ImGui::DragFloat3("##leentpos", e.position, 0.1f)) m_unsavedChanges = true;
+        if (ImGui::InputFloat3("##leentpos", e.position, "%.3f")) m_unsavedChanges = true;
 
         PropertyLabel("Rotation");
-        if (ImGui::DragFloat3("##leentrot", e.rotation, 0.5f)) m_unsavedChanges = true;
+        if (ImGui::InputFloat3("##leentrot", e.rotation, "%.2f")) m_unsavedChanges = true;
 
         PropertyLabel("Scale");
-        if (ImGui::DragFloat3("##leentscl", e.scale, 0.01f, 0.01f, 100.0f)) m_unsavedChanges = true;
+        if (ImGui::InputFloat3("##leentscl", e.scale, "%.3f")) m_unsavedChanges = true;
 
         PropertyLabel("Color");
         if (ImGui::ColorEdit4("##leentcol", e.color,
