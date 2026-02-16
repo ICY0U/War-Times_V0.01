@@ -68,11 +68,14 @@ struct CBPerFrame {
     float      FarZ;
 };
 
-// b1 — Per-Object (world transform) — bound VS
+// b1 — Per-Object (world transform + hit decals) — bound VS + PS
 struct CBPerObject {
     XMFLOAT4X4 World;
     XMFLOAT4X4 WorldInvTranspose;
     XMFLOAT4   ObjectColor;      // If alpha > 0, overrides vertex color
+    XMFLOAT4   HitDecals[4];     // xyz = world position, w = intensity (0..1)
+    float      HitDecalCount;    // Number of active hit decals (0-4)
+    float      _pad1[3];         // 16-byte alignment padding
 };
 
 // b2 — Lighting (sun, ambient, fog, cel-shading) — bound PS

@@ -129,7 +129,7 @@ private:
 
     int  m_width       = 0;
     int  m_height      = 0;
-    bool m_vsync       = true;
+    bool m_vsync       = false;
     UINT m_sampleCount = 4;     // MSAA sample count (1 = off)
 
     RenderStats m_stats;

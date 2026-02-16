@@ -14,7 +14,7 @@
 #include "Graphics/Texture.h"
 #include "Util/MathHelpers.h"
 #include "Core/ResourceManager.h"
-#include "Core/Entity.h"
+#include "PCG/LevelGenerator.h"
 
 struct ImGuiContext;   // forward
 
@@ -106,6 +106,9 @@ public:
     void SaveCurrentLevel(EditorState& state);
     void LoadLevel(const std::string& path, EditorState& state);
     void NewLevel(EditorState& state);
+    const std::string& GetLevelsDirectory() const { return m_levelsDirectory; }
+    const std::string& GetCurrentLevelPath() const { return m_currentLevelPath; }
+    void SetCurrentLevelPath(const std::string& path) { m_currentLevelPath = path; }
 
     // Hot-swap: signal that the current editor scene should replace the game scene
     bool HasPendingHotSwap() const { return m_hotSwapPending; }
@@ -156,6 +159,7 @@ private:
     void DrawArtStyleSection(EditorState& state);
     void DrawSSAOSection(EditorState& state);
     void DrawCharacterSection(EditorState& state);
+    void DrawPCGSection(EditorState& state);
 
     // ImGui helpers
     bool BeginSection(const char* icon, const char* label, bool defaultOpen = true);
@@ -256,6 +260,9 @@ private:
     MeshType    m_placeMeshType = MeshType::Cube;
     std::string m_placeMeshName;
     float       m_placeColor[4] = { 0.6f, 0.6f, 0.6f, 1.0f };
+
+    // PCG Level Generator
+    LevelGenSettings m_pcgSettings;
 };
 
 } // namespace WT

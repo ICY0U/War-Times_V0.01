@@ -69,6 +69,55 @@ void DebugRenderer::DrawBox(const XMFLOAT3& center, const XMFLOAT3& extents, con
     DrawLine({ x0, y0, z1 }, { x0, y1, z1 }, color);
 }
 
+void DebugRenderer::DrawRotatedBox(const XMFLOAT3& center, const XMFLOAT3& halfExt,
+                                    const XMFLOAT3X3& rotMat, const XMFLOAT4& color) {
+    // OBB local axes (rows of the rotation matrix)
+    XMFLOAT3 axisX = { rotMat._11, rotMat._12, rotMat._13 };
+    XMFLOAT3 axisY = { rotMat._21, rotMat._22, rotMat._23 };
+    XMFLOAT3 axisZ = { rotMat._31, rotMat._32, rotMat._33 };
+
+    // Scale axes by half-extents
+    XMFLOAT3 ex = { axisX.x * halfExt.x, axisX.y * halfExt.x, axisX.z * halfExt.x };
+    XMFLOAT3 ey = { axisY.x * halfExt.y, axisY.y * halfExt.y, axisY.z * halfExt.y };
+    XMFLOAT3 ez = { axisZ.x * halfExt.z, axisZ.y * halfExt.z, axisZ.z * halfExt.z };
+
+    // 8 corners of the oriented box
+    auto add3 = [](XMFLOAT3 a, XMFLOAT3 b, XMFLOAT3 c, XMFLOAT3 d) -> XMFLOAT3 {
+        return { a.x + b.x + c.x + d.x, a.y + b.y + c.y + d.y, a.z + b.z + c.z + d.z };
+    };
+    auto neg = [](XMFLOAT3 v) -> XMFLOAT3 { return { -v.x, -v.y, -v.z }; };
+
+    // corners: center ± ex ± ey ± ez
+    XMFLOAT3 c[8] = {
+        add3(center, neg(ex), neg(ey), neg(ez)),  // 0: ---
+        add3(center, ex,      neg(ey), neg(ez)),  // 1: +--
+        add3(center, ex,      ey,      neg(ez)),  // 2: ++-
+        add3(center, neg(ex), ey,      neg(ez)),  // 3: -+-
+        add3(center, neg(ex), neg(ey), ez),        // 4: --+
+        add3(center, ex,      neg(ey), ez),        // 5: +-+
+        add3(center, ex,      ey,      ez),        // 6: +++
+        add3(center, neg(ex), ey,      ez),        // 7: -++
+    };
+
+    // Bottom face (0-1-5-4)
+    DrawLine(c[0], c[1], color);
+    DrawLine(c[1], c[5], color);
+    DrawLine(c[5], c[4], color);
+    DrawLine(c[4], c[0], color);
+
+    // Top face (3-2-6-7)
+    DrawLine(c[3], c[2], color);
+    DrawLine(c[2], c[6], color);
+    DrawLine(c[6], c[7], color);
+    DrawLine(c[7], c[3], color);
+
+    // Vertical edges
+    DrawLine(c[0], c[3], color);
+    DrawLine(c[1], c[2], color);
+    DrawLine(c[5], c[6], color);
+    DrawLine(c[4], c[7], color);
+}
+
 void DebugRenderer::DrawGrid(float size, int divisions, const XMFLOAT4& color) {
     float half = size * 0.5f;
     float step = size / static_cast<float>(divisions);

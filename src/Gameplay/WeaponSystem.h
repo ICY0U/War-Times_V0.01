@@ -145,6 +145,7 @@ struct WeaponHitResult {
     XMFLOAT3 hitNormal    = { 0, 1, 0 };
     int      entityIndex  = -1;       // Scene entity hit (-1 = none/ground)
     int      agentIndex   = -1;       // AI agent hit (-1 = none)
+    int      voxelCellIndex = -1;     // Voxel cell hit (-1 = not voxel)
     float    distance     = 0.0f;
 };
 

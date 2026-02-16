@@ -180,6 +180,9 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\LevelGenerator.h">
+      <Filter>Source\PCG</Filter>
+    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h">
       <Filter>Source\Physics</Filter>
     </ClInclude>
@@ -282,6 +285,9 @@
     </Filter>
     <Filter Include="Source\Graphics">
       <UniqueIdentifier>{2A53190F-6944-395B-A426-4E0D7BB6AFB9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\PCG">
+      <UniqueIdentifier>{6D6539E4-FBE6-348D-A43B-668A74B15302}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source\Physics">
       <UniqueIdentifier>{0232C067-82A2-3753-9209-F93704C6B5C7}</UniqueIdentifier>

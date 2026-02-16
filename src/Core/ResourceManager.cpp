@@ -1,6 +1,8 @@
 #include "ResourceManager.h"
 #include "Util/Log.h"
 #include <filesystem>
+#include <algorithm>
+#include <cstdint>
 
 namespace WT {
 
@@ -271,6 +273,225 @@ int ResourceManager::LoadTextureDirectory(const std::wstring& dirPath) {
     }
 
     LOG_INFO("Loaded %d textures from directory (recursive)", count);
+    return count;
+}
+
+int ResourceManager::CreateDevTextures() {
+    int count = 0;
+    // Dev grid textures: 256x256 with 8-cell grid, subtle checkerboard
+
+    // Walls — warm gray / tan with dark grid lines
+    {
+        Resource<Texture> res;
+        res.name = "Walls/texture";
+        if (res.data.CreateGridTexture(m_device, 256,
+                0.60f, 0.55f, 0.48f,   // base: warm tan
+                0.30f, 0.28f, 0.25f,   // lines: dark brown-gray
+                8, 2)) {
+            m_textures["Walls/texture"] = std::move(res);
+            count++;
+            LOG_INFO("Created dev texture: Walls/texture");
+        }
+    }
+
+    // Floors — gray-green with dark grid lines
+    {
+        Resource<Texture> res;
+        res.name = "Floors/texture";
+        if (res.data.CreateGridTexture(m_device, 256,
+                0.45f, 0.50f, 0.42f,   // base: muted olive-gray
+                0.22f, 0.25f, 0.20f,   // lines: dark green-gray
+                8, 2)) {
+            m_textures["Floors/texture"] = std::move(res);
+            count++;
+            LOG_INFO("Created dev texture: Floors/texture");
+        }
+    }
+
+    // Props — steel blue-gray with dark grid lines
+    {
+        Resource<Texture> res;
+        res.name = "Props/texture";
+        if (res.data.CreateGridTexture(m_device, 256,
+                0.48f, 0.52f, 0.58f,   // base: steel blue-gray
+                0.24f, 0.26f, 0.30f,   // lines: dark blue-gray
+                8, 2)) {
+            m_textures["Props/texture"] = std::move(res);
+            count++;
+            LOG_INFO("Created dev texture: Props/texture");
+        }
+    }
+
+    // Environment — neutral mid-gray with dark lines
+    {
+        Resource<Texture> res;
+        res.name = "Environment/texture";
+        if (res.data.CreateGridTexture(m_device, 256,
+                0.50f, 0.50f, 0.50f,   // base: neutral gray
+                0.25f, 0.25f, 0.25f,   // lines: dark gray
+                8, 2)) {
+            m_textures["Environment/texture"] = std::move(res);
+            count++;
+            LOG_INFO("Created dev texture: Environment/texture");
+        }
+    }
+
+    LOG_INFO("Created %d dev grid textures", count);
+
+    // ============================================================
+    // Detailed procedural textures for world materials
+    // ============================================================
+    auto hashNoise = [](int x, int y, int seed) -> float {
+        int n = x * 374761393 + y * 668265263 + seed * 1274126177;
+        n = (n << 13) ^ n;
+        return 1.0f - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0f;
+    };
+    auto clampF = [](float v) -> uint8_t { return static_cast<uint8_t>((std::max)(0.0f, (std::min)(1.0f, v)) * 255.0f); };
+
+    // ---- Brick Wall Texture (256x256) ----
+    {
+        const int S = 256;
+        std::vector<uint8_t> px(S * S * 4);
+        int brickH = 16, brickW = 32, mortarW = 2;
+        for (int y = 0; y < S; y++) {
+            for (int x = 0; x < S; x++) {
+                int row = y / brickH;
+                int xOff = (row % 2 == 0) ? 0 : brickW / 2;
+                int lx = (x + xOff) % brickW;
+                int ly = y % brickH;
+                bool mortar = (lx < mortarW || ly < mortarW);
+                float n = hashNoise(x, y, 42) * 0.06f;
+                float r, g, b;
+                if (mortar) {
+                    r = 0.50f + n; g = 0.48f + n; b = 0.44f + n;
+                } else {
+                    float rowVar = hashNoise(row, (x + xOff) / brickW, 7) * 0.08f;
+                    r = 0.55f + rowVar + n; g = 0.32f + rowVar * 0.5f + n; b = 0.25f + n;
+                }
+                int idx = (y * S + x) * 4;
+                px[idx] = clampF(r); px[idx+1] = clampF(g); px[idx+2] = clampF(b); px[idx+3] = 255;
+            }
+        }
+        Resource<Texture> res; res.name = "Buildings/brick";
+        if (res.data.CreateFromData(m_device, px.data(), S, S)) {
+            m_textures["Buildings/brick"] = std::move(res); count++;
+        }
+    }
+
+    // ---- Roof Shingle Texture (256x256) ----
+    {
+        const int S = 256;
+        std::vector<uint8_t> px(S * S * 4);
+        int shingleH = 20, shingleW = 24;
+        for (int y = 0; y < S; y++) {
+            for (int x = 0; x < S; x++) {
+                int row = y / shingleH;
+                int xOff = (row % 2 == 0) ? 0 : shingleW / 2;
+                int lx = (x + xOff) % shingleW;
+                int ly = y % shingleH;
+                bool edge = (lx < 1 || ly < 1);
+                float n = hashNoise(x, y, 99) * 0.05f;
+                float r, g, b;
+                if (edge) {
+                    r = 0.20f + n; g = 0.18f + n; b = 0.16f + n;
+                } else {
+                    float rowVar = hashNoise(row, (x + xOff) / shingleW, 33) * 0.06f;
+                    // Dark slate gray
+                    r = 0.30f + rowVar + n; g = 0.28f + rowVar + n; b = 0.32f + rowVar + n;
+                }
+                int idx = (y * S + x) * 4;
+                px[idx] = clampF(r); px[idx+1] = clampF(g); px[idx+2] = clampF(b); px[idx+3] = 255;
+            }
+        }
+        Resource<Texture> res; res.name = "Buildings/roof";
+        if (res.data.CreateFromData(m_device, px.data(), S, S)) {
+            m_textures["Buildings/roof"] = std::move(res); count++;
+        }
+    }
+
+    // ---- Tree Bark Texture (128x128) ----
+    {
+        const int S = 128;
+        std::vector<uint8_t> px(S * S * 4);
+        for (int y = 0; y < S; y++) {
+            for (int x = 0; x < S; x++) {
+                float n1 = hashNoise(x, y, 55) * 0.08f;
+                float n2 = hashNoise(x / 4, y, 77) * 0.10f;
+                // Vertical bark grain
+                float grain = (float)((x * 7 + y * 3) % 13) / 13.0f * 0.06f;
+                float r = 0.35f + n1 + n2 + grain;
+                float g = 0.24f + n1 * 0.7f + n2 * 0.5f + grain * 0.5f;
+                float b = 0.14f + n1 * 0.3f + grain * 0.3f;
+                int idx = (y * S + x) * 4;
+                px[idx] = clampF(r); px[idx+1] = clampF(g); px[idx+2] = clampF(b); px[idx+3] = 255;
+            }
+        }
+        Resource<Texture> res; res.name = "Buildings/tree";
+        if (res.data.CreateFromData(m_device, px.data(), S, S)) {
+            m_textures["Buildings/tree"] = std::move(res); count++;
+        }
+    }
+
+    // ---- Fence Wood Plank Texture (128x256) ----
+    {
+        const int W = 128, H = 256;
+        std::vector<uint8_t> px(W * H * 4);
+        int plankW = 32;
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                int plank = x / plankW;
+                int lx = x % plankW;
+                bool gap = (lx < 1 || lx >= plankW - 1);
+                float n = hashNoise(x, y, 123) * 0.05f;
+                float grain = hashNoise(x / 2, y, 200 + plank) * 0.04f;
+                float plankVar = hashNoise(plank, 0, 300) * 0.06f;
+                float r, g, b;
+                if (gap) {
+                    r = 0.15f; g = 0.12f; b = 0.08f;
+                } else {
+                    r = 0.50f + plankVar + grain + n;
+                    g = 0.36f + plankVar * 0.7f + grain + n * 0.8f;
+                    b = 0.20f + plankVar * 0.3f + n * 0.5f;
+                }
+                int idx = (y * W + x) * 4;
+                px[idx] = clampF(r); px[idx+1] = clampF(g); px[idx+2] = clampF(b); px[idx+3] = 255;
+            }
+        }
+        Resource<Texture> res; res.name = "Buildings/fence";
+        if (res.data.CreateFromData(m_device, px.data(), W, H)) {
+            m_textures["Buildings/fence"] = std::move(res); count++;
+        }
+    }
+
+    // ---- Stone Floor Tile Texture (256x256) ----
+    {
+        const int S = 256;
+        std::vector<uint8_t> px(S * S * 4);
+        int tileSize = 32, groutW = 2;
+        for (int y = 0; y < S; y++) {
+            for (int x = 0; x < S; x++) {
+                int lx = x % tileSize, ly = y % tileSize;
+                bool grout = (lx < groutW || ly < groutW);
+                float n = hashNoise(x, y, 171) * 0.06f;
+                float r, g, b;
+                if (grout) {
+                    r = 0.28f + n; g = 0.27f + n; b = 0.25f + n;
+                } else {
+                    int tx = x / tileSize, ty = y / tileSize;
+                    float tileVar = hashNoise(tx, ty, 500) * 0.07f;
+                    r = 0.52f + tileVar + n; g = 0.50f + tileVar + n; b = 0.46f + tileVar + n;
+                }
+                int idx = (y * S + x) * 4;
+                px[idx] = clampF(r); px[idx+1] = clampF(g); px[idx+2] = clampF(b); px[idx+3] = 255;
+            }
+        }
+        Resource<Texture> res; res.name = "Buildings/floor";
+        if (res.data.CreateFromData(m_device, px.data(), S, S)) {
+            m_textures["Buildings/floor"] = std::move(res); count++;
+        }
+    }
+
+    LOG_INFO("Created %d total procedural textures", count);
     return count;
 }
 

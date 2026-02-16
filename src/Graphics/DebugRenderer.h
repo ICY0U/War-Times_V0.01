@@ -20,6 +20,8 @@ public:
     // Queue world-space line primitives (accumulated until Flush)
     void DrawLine(const XMFLOAT3& from, const XMFLOAT3& to, const XMFLOAT4& color);
     void DrawBox(const XMFLOAT3& center, const XMFLOAT3& extents, const XMFLOAT4& color);
+    void DrawRotatedBox(const XMFLOAT3& center, const XMFLOAT3& halfExt,
+                        const XMFLOAT3X3& rotMat, const XMFLOAT4& color);
     void DrawGrid(float size, int divisions, const XMFLOAT4& color);
     void DrawSphere(const XMFLOAT3& center, float radius, const XMFLOAT4& color, int segments = 16);
     void DrawAxis(const XMFLOAT3& origin, float length);

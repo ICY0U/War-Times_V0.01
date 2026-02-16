@@ -401,6 +401,7 @@ WeaponHitResult WeaponSystem::DoRaycast(const XMFLOAT3& origin, const XMFLOAT3& 
             result.distance = physHit.depth;
             result.hitNormal = physHit.normal;
             result.entityIndex = physHit.entityIndex;
+            result.voxelCellIndex = physHit.voxelCellIndex;
             result.hitPosition = {
                 origin.x + direction.x * physHit.depth,
                 origin.y + direction.y * physHit.depth,

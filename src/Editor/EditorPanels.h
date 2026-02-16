@@ -43,10 +43,10 @@ struct EditorState {
 
     // Renderer
     bool  wireframe   = false;
-    bool  vsync       = true;
+    bool  vsync       = false;
     int   msaaSamples = 4;
     float clearColor[4] = { 0.05f, 0.05f, 0.08f, 1.0f }; // Dark fallback (sky covers it)
-    bool  showDebug   = true;
+    bool  showDebug   = false;
 
     // Sky
     float skyZenithColor[3]   = { 0.15f, 0.3f, 0.65f };  // Deep blue
@@ -123,8 +123,8 @@ struct EditorState {
     // Character System
     bool  characterMode       = true;     // FPS ground mode vs fly cam
     bool  charShowBody        = false;    // Show body (off for FPS)
-    float charMoveSpeed       = 5.0f;
-    float charSprintMult      = 2.0f;
+    float charMoveSpeed       = 4.0f;
+    float charSprintMult      = 1.5f;
     float charJumpForce       = 6.0f;
     float charGravity         = 18.0f;
     float charGroundY         = 0.0f;
@@ -182,6 +182,9 @@ struct EditorState {
 
     // Level Editor (separate window)
     LevelEditorWindow* pLevelEditor = nullptr;
+
+    // PCG
+    bool  pcgOnLaunch        = false;    // Generate random level on game start
 
     // Flags
     bool lightingDirty  = false;

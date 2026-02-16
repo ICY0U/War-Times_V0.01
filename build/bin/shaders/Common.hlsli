@@ -23,11 +23,14 @@ cbuffer CBPerFrame : register(b0) {
     float    gFarZ;
 };
 
-// Per-Object data — set per draw call (b1, VS)
+// Per-Object data — set per draw call (b1, VS + PS)
 cbuffer CBPerObject : register(b1) {
     float4x4 gWorld;
     float4x4 gWorldInvTranspose;
     float4   gObjectColor;       // If alpha > 0, overrides vertex color
+    float4   gHitDecals[4];      // xyz = world position, w = intensity (0..1)
+    float    gHitDecalCount;     // Number of active hit decals (0-4)
+    float3   _objPad1;           // alignment padding
 };
 
 // Lighting data — set once per frame (b2, PS)
@@ -270,11 +273,17 @@ float3 CalcCelShadowed(float3 normal, float3 worldPos, float3 albedo, float spec
     // Shadow factor
     float shadow = CalcShadow(worldPos, N);
 
-    // Quantize diffuse into bands
+    // Wrap lighting: shift NdotL so back-faces still receive some light
+    // This prevents surfaces facing away from the sun from going pure black
+    float wrapNdotL = (NdotL + 0.3f) / 1.3f;
+    float lit = max(wrapNdotL, 0.0f) * shadow;
+
+    // Quantize diffuse into bands, but guarantee a minimum band
+    // so shadowed areas still have some definition
     float bands = max(gCelBands, 2.0f);
-    float lit = max(NdotL, 0.0f) * shadow;
     float stepped = floor(lit * bands + 0.5f) / bands;
-    // Soften the transition slightly to avoid harsh aliasing
+    // Ensure at least a small amount of directional light
+    stepped = max(stepped, 0.15f / bands);
     float3 diffuse = gSunColor * gSunIntensity * stepped;
 
     // Hard specular highlight (cel-style: sharp cutoff)
@@ -288,10 +297,11 @@ float3 CalcCelShadowed(float3 normal, float3 worldPos, float3 albedo, float spec
     float rimMask = step(0.1f, NdotL + 0.3f);  // Only on lit side
     float3 rimColor = gSunColor * rim * rimMask * 0.5f;
 
-    // Ambient (quantized slightly to match cel look)
+    // Ambient — keep it clean, no quantization artifacts
     float3 ambient = gAmbientColor * gAmbientIntensity;
-    float ambientStep = floor(ambient.r * 3.0f + 0.5f) / 3.0f;
-    ambient = ambient * (ambientStep / max(ambient.r, 0.001f));
+    // Slight hemisphere boost: surfaces facing up get a bit more sky light
+    float hemi = N.y * 0.5f + 0.5f;
+    ambient *= lerp(0.8f, 1.2f, hemi);
 
     return albedo * (ambient + diffuse) + specular + rimColor;
 }

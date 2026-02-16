@@ -65,6 +65,8 @@ public:
     bool LoadTexturePNG(const std::string& name, const std::wstring& filepath);
     // Scan a directory for .bmp/.png files and load them
     int  LoadTextureDirectory(const std::wstring& dirPath);
+    // Create procedural dev grid textures for prototyping
+    int  CreateDevTextures();
     Texture* GetTexture(const std::string& name);
     void     ReleaseTexture(const std::string& name);
 

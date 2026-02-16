@@ -115,7 +115,7 @@ private:
     EditorPanels m_editorPanels;
     EditorState  m_editorState;
     LevelEditorWindow m_levelEditor;
-    bool m_editorVisible = true;
+    bool m_editorVisible = false;
 
     // Test scene
     float m_cubeRotation = 0.0f;

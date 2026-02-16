@@ -1,7 +1,7 @@
 # War Times Level File
 # Version 1
 # Test Arena - Medium-sized combat area (~40x40m)
-entity_count = 62
+entity_count = 74
 
 # =========================================
 # GROUND FLOOR
@@ -1008,3 +1008,246 @@ health = 100
 debris_count = 5
 debris_scale = 0.25
 
+# =========================================
+# GLASS WINDOWS — fragile, thin panes
+# =========================================
+[entity]
+name = Window_Center_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 0 1.8 -8
+rotation = 0 0 0
+scale = 2 1.5 0.08
+color = 0.6 0.75 0.85 0.6
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 30
+debris_count = 8
+debris_scale = 0.15
+material_type = 3
+
+[entity]
+name = Window_Center_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 3 1.8 -8
+rotation = 0 0 0
+scale = 2 1.5 0.08
+color = 0.6 0.75 0.85 0.6
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 30
+debris_count = 8
+debris_scale = 0.15
+material_type = 3
+
+[entity]
+name = Window_Side_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -6 1.8 3
+rotation = 0 90 0
+scale = 2.5 1.8 0.08
+color = 0.55 0.7 0.82 0.6
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 25
+debris_count = 6
+debris_scale = 0.12
+material_type = 3
+
+[entity]
+name = Window_Large
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 8 2.0 8.5
+rotation = 0 0 0
+scale = 4 2.5 0.1
+color = 0.5 0.65 0.78 0.5
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 40
+debris_count = 10
+debris_scale = 0.2
+material_type = 3
+
+# =========================================
+# WOODEN FENCES — thin planks
+# =========================================
+[entity]
+name = Fence_Row_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -15 1.5 -3
+rotation = 0 0 0
+scale = 5 1 0.1
+color = 0.55 0.4 0.2 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 40
+debris_count = 4
+debris_scale = 0.2
+material_type = 1
+
+[entity]
+name = Fence_Row_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -15 1.5 -5
+rotation = 0 0 0
+scale = 5 1 0.1
+color = 0.5 0.38 0.18 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 40
+debris_count = 4
+debris_scale = 0.2
+material_type = 1
+
+[entity]
+name = Fence_Post_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -12.5 1.6 -3
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+
+[entity]
+name = Fence_Post_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -17.5 1.6 -3
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+
+[entity]
+name = Fence_Post_03
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -12.5 1.6 -5
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+
+[entity]
+name = Fence_Post_04
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -17.5 1.6 -5
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+
+[entity]
+name = Fence_Angled
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -13 1.5 -1
+rotation = 0 45 0
+scale = 3 1 0.1
+color = 0.52 0.38 0.18 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 35
+debris_count = 4
+debris_scale = 0.18
+material_type = 1
+
+[entity]
+name = Thick_Concrete_Wall
+mesh_type = 0
+mesh_name = 
+texture_name = Walls/texture
+position = 14 1.5 5
+rotation = 0 0 0
+scale = 5 3 1.5
+color = 0.5 0.48 0.45 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 400
+debris_count = 12
+debris_scale = 0.4
+material_type = 0
+
+[entity]
+name = Metal_Plate_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 11.7 0.75 -3
+rotation = 0 20 0
+scale = 2 1.5 0.15
+color = 0.4 0.42 0.45 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 200
+debris_count = 6
+debris_scale = 0.25
+material_type = 2
+
+[entity]
+name = Metal_Plate_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 14.2 0.75 -4.5
+rotation = 0 -10 0
+scale = 2 1.5 0.15
+color = 0.38 0.4 0.43 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 200
+debris_count = 6
+debris_scale = 0.25
+material_type = 2

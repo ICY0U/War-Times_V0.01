@@ -23,6 +23,13 @@ public:
     // Load from a PNG image file (uses WIC)
     bool LoadFromPNG(ID3D11Device* device, const std::wstring& filepath);
 
+    // Create a procedural dev grid texture (prototype placeholder)
+    // baseColor: fill color, lineColor: grid line color, gridCells: number of grid cells per axis
+    bool CreateGridTexture(ID3D11Device* device, int texSize,
+                           float baseR, float baseG, float baseB,
+                           float lineR, float lineG, float lineB,
+                           int gridCells = 8, int lineWidth = 2);
+
     // Bind to pixel shader texture slot
     void Bind(ID3D11DeviceContext* context, UINT slot) const;
     void BindVS(ID3D11DeviceContext* context, UINT slot) const;

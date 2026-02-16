@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Util/Log.h"
 #include "Editor/LevelFile.h"
+#include "PCG/LevelGenerator.h"
 #include <cstdio>
 #include <algorithm>
 
@@ -189,22 +190,22 @@ bool Application::Init(HINSTANCE hInstance, int width, int height) {
     m_timer.Reset();
     m_running = true;
 
-    // Start with cursor free so the editor is usable
-    m_input.SetCursorLocked(false);
+    // Start in FPS mode with cursor locked (F6 to open editor)
+    m_editorVisible = false;
+    m_input.SetCursorLocked(true);
 
-    // Auto-load default level if it exists
-    {
-        std::wstring levelsDir = m_exeDir + L"levels/";
-        std::wstring defaultLevelW = levelsDir + L"test_arena.wtlevel";
-        // Convert wide path to narrow for LevelFile
-        char defaultLevel[MAX_PATH];
-        WideCharToMultiByte(CP_UTF8, 0, defaultLevelW.c_str(), -1, defaultLevel, MAX_PATH, nullptr, nullptr);
-        if (std::filesystem::exists(defaultLevel)) {
-            LevelFile::Load(std::string(defaultLevel), m_editorState.scene);
-            m_editorState.entityDirty = true;
-            LOG_INFO("Auto-loaded default level: %s (%d entities)",
-                     defaultLevel, m_editorState.scene.GetEntityCount());
-        }
+    // Auto-load default level or generate a random one
+    if (m_editorState.pcgOnLaunch) {
+        LevelGenerator gen;
+        gen.Generate(m_editorState.scene);
+        m_editorState.entityDirty = true;
+        LOG_INFO("PCG: Generated random level on launch (seed %u, %d entities)",
+                 gen.GetUsedSeed(), m_editorState.scene.GetEntityCount());
+    } else {
+        // Start with a blank level (no entities)
+        m_editorState.scene.Clear();
+        m_editorState.entityDirty = true;
+        LOG_INFO("Started with blank level");
     }
 
     LOG_INFO("Application initialized successfully");
@@ -322,6 +323,10 @@ bool Application::InitGraphics() {
 
     // Load textures
     int texCount = 0;
+
+    // Create dev prototype grid textures FIRST (overrides any broken PNGs)
+    texCount += ResourceManager::Get().CreateDevTextures();
+
     std::wstring texturesDir = m_exeDir + L"textures/";
     texCount += ResourceManager::Get().LoadTextureDirectory(texturesDir);
     LOG_INFO("Loaded %d textures", texCount);
@@ -415,7 +420,15 @@ bool Application::CreateGroundMesh() {
 
 int Application::Run() {
     MSG msg = {};
+
+    // Frame rate limiter — 60 FPS cap
+    LARGE_INTEGER qpcFreq, frameStart, frameEnd;
+    QueryPerformanceFrequency(&qpcFreq);
+    const double targetFrameTime = 1.0 / 60.0; // 16.667ms
+
     while (m_running) {
+        QueryPerformanceCounter(&frameStart);
+
         // Process all pending Windows messages
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
@@ -451,6 +464,12 @@ int Application::Run() {
 
         // Title bar — just the engine name (stats shown in editor menu bar)
         SetWindowText(m_hwnd, m_title.c_str());
+
+        // --- Frame rate limiter: spin-wait to hit 60 FPS ---
+        do {
+            QueryPerformanceCounter(&frameEnd);
+        } while (static_cast<double>(frameEnd.QuadPart - frameStart.QuadPart)
+               / static_cast<double>(qpcFreq.QuadPart) < targetFrameTime);
     }
 
     return static_cast<int>(msg.wParam);
@@ -464,6 +483,33 @@ void Application::FixedUpdate(float dt) {
 
 void Application::Update(float dt) {
     (void)dt;
+
+    // --- Despawn timer: remove debris entities after their timer expires ---
+    {
+        bool needsColliderRebuild = false;
+        for (int i = m_editorState.scene.GetEntityCount() - 1; i >= 0; i--) {
+            auto& e = m_editorState.scene.GetEntity(i);
+            if (e.despawnTimer < 0.0f) continue; // no despawn
+            e.despawnTimer -= dt;
+
+            // Fade out during last 2 seconds
+            if (e.despawnTimer < 2.0f && e.despawnTimer >= 0.0f) {
+                e.color[3] = e.despawnTimer / 2.0f;
+            }
+
+            if (e.despawnTimer <= 0.0f) {
+                m_editorState.scene.RemoveEntity(i);
+                if (m_editorState.selectedEntity == i)
+                    m_editorState.selectedEntity = -1;
+                else if (m_editorState.selectedEntity > i)
+                    m_editorState.selectedEntity--;
+                needsColliderRebuild = true;
+            }
+        }
+        if (needsColliderRebuild) {
+            m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+        }
+    }
 
     // Suppress game input when editor UI wants it
     bool editorWantsKeyboard = m_editorVisible && m_editorUI.WantsKeyboard();
@@ -644,47 +690,158 @@ void Application::Update(float dt) {
             const auto& hit = m_weaponSystem.GetLastHit();
 
             if (hit.hit) {
-                // Always spawn impact FX (sparks + dust) on any surface hit
-                m_particles.SpawnImpactSparks(hit.hitPosition, hit.hitNormal, 6);
-
-                // If we hit a destructible entity, damage it
+                // If we hit an entity, use material-aware impact FX
                 if (hit.entityIndex >= 0 && hit.entityIndex < m_editorState.scene.GetEntityCount()) {
                     auto& entity = m_editorState.scene.GetEntity(hit.entityIndex);
 
-                    // Spawn dust puff at hit location
-                    m_particles.SpawnDustPuff(hit.hitPosition, hit.hitNormal, entity.color, 4);
+                    // Material-aware impact FX (sparks + dust tuned per material)
+                    m_particles.SpawnMaterialImpact(hit.hitPosition, hit.hitNormal,
+                                                    entity.color, entity.materialType);
+
+                    // Add hit decal (bullet scar) at world-space hit position
+                    entity.AddHitDecal(hit.hitPosition.x, hit.hitPosition.y, hit.hitPosition.z);
 
                     if (entity.destructible) {
-                        float damage = m_weaponSystem.GetCurrentDef().damage
-                                     * m_weaponSystem.GetCurrentDef().pelletsPerShot;
-                        bool destroyed = entity.TakeDamage(damage);
+                        // Auto-enable voxel destruction on cubes that don't have it yet
+                        if (!entity.voxelDestruction && entity.meshType == MeshType::Cube) {
+                            entity.voxelDestruction = true;
+                            // Pick resolution: thin/fragile materials get smaller grids
+                            float minScale = (std::min)({entity.scale[0], entity.scale[1], entity.scale[2]});
+                            float avgScale = (entity.scale[0] + entity.scale[1] + entity.scale[2]) / 3.0f;
 
-                        // Spawn smoke if entity is below 50% health (still alive)
-                        if (!destroyed && entity.GetHealthFraction() < 0.5f && entity.smokeOnDamage) {
+                            if (entity.materialType == MaterialType::Glass ||
+                                entity.materialType == MaterialType::Wood ||
+                                minScale < 0.5f) {
+                                entity.voxelRes = 5;
+                            } else if (avgScale >= 4.0f) {
+                                entity.voxelRes = 8;
+                            } else if (avgScale >= 2.0f) {
+                                entity.voxelRes = 6;
+                            } else {
+                                entity.voxelRes = 5;
+                            }
+                            entity.ResetVoxelMask();
+                        }
+
+                        // Voxel chunk destruction: remove the hit cell only
+                        if (entity.voxelDestruction && entity.meshType == MeshType::Cube) {
+                            // Prefer direct cell index from physics (works from any direction)
+                            bool removed = false;
+                            if (hit.voxelCellIndex >= 0) {
+                                removed = entity.RemoveVoxelCell(hit.voxelCellIndex);
+                            } else {
+                                // Fallback for first hit before per-cell colliders exist
+                                removed = entity.RemoveVoxelAt(hit.hitPosition.x, hit.hitPosition.y, hit.hitPosition.z);
+                            }
+                            if (removed) {
+                                // Spawn small debris for the removed chunk
+                                XMFLOAT3 chunkScale = {
+                                    entity.scale[0] / entity.voxelRes,
+                                    entity.scale[1] / entity.voxelRes,
+                                    entity.scale[2] / entity.voxelRes
+                                };
+                                m_particles.SpawnMaterialImpact(hit.hitPosition, hit.hitNormal,
+                                                                entity.color, entity.materialType);
+                                m_particles.SpawnDebris(hit.hitPosition, chunkScale, entity.color, 4, 0.5f);
+
+                                // Rebuild colliders so player can walk/shoot through the hole
+                                m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+                            }
+
+                            // Destroy entity only when ALL voxel cells are gone
+                            if (entity.GetActiveVoxelCount() == 0) {
+                                entity.health = 0.0f;
+                            }
+                        } else {
+                            // Non-voxel entities: normal HP damage
+                            float damage = m_weaponSystem.GetCurrentDef().damage
+                                         * m_weaponSystem.GetCurrentDef().pelletsPerShot;
+                            entity.TakeDamage(damage);
+                        }
+
+                        bool destroyed = entity.IsDestroyed();
+
+                        // Spawn smoke if entity is below 50% health (still alive, non-voxel only)
+                        if (!destroyed && !entity.voxelDestruction &&
+                            entity.GetHealthFraction() < 0.5f && entity.smokeOnDamage) {
                             XMFLOAT3 smokeCenter = { entity.position[0], entity.position[1], entity.position[2] };
                             XMFLOAT3 smokeScale = { entity.scale[0], entity.scale[1], entity.scale[2] };
                             m_particles.SpawnSmoke(smokeCenter, smokeScale, 2);
                         }
 
-                        // Fire embers on critical damage (below 25%)
-                        if (!destroyed && entity.GetHealthFraction() < 0.25f) {
+                        // Fire embers on critical damage (below 25%, non-voxel only)
+                        if (!destroyed && !entity.voxelDestruction && entity.GetHealthFraction() < 0.25f) {
                             XMFLOAT3 fireCenter = { entity.position[0], entity.position[1], entity.position[2] };
                             XMFLOAT3 fireScale = { entity.scale[0], entity.scale[1], entity.scale[2] };
                             m_particles.SpawnFireEmbers(fireCenter, fireScale, 3);
                         }
 
                         if (destroyed) {
-                            // Full explosion: debris + sparks + smoke + fire
-                            XMFLOAT3 center = { entity.position[0], entity.position[1], entity.position[2] };
-                            XMFLOAT3 entScale = { entity.scale[0], entity.scale[1], entity.scale[2] };
-                            m_particles.SpawnExplosion(center, entScale, entity.color,
-                                                      entity.debrisCount, entity.debrisScale);
+                            // IMPORTANT: Copy entity data BEFORE modifying the scene,
+                            // because AddEntity/RemoveEntity can reallocate the vector
+                            // and invalidate the 'entity' reference.
+                            Entity destroyedCopy = entity;
 
-                            // Screen shake proportional to entity size
-                            float avgScale = (entity.scale[0] + entity.scale[1] + entity.scale[2]) / 3.0f;
-                            m_camera.AddScreenShake(0.08f * avgScale, 0.3f);
+                            // Full material-aware explosion
+                            XMFLOAT3 center = { destroyedCopy.position[0], destroyedCopy.position[1], destroyedCopy.position[2] };
+                            XMFLOAT3 entScale = { destroyedCopy.scale[0], destroyedCopy.scale[1], destroyedCopy.scale[2] };
+                            m_particles.SpawnMaterialExplosion(center, entScale, destroyedCopy.color,
+                                                              destroyedCopy.debrisCount, destroyedCopy.debrisScale,
+                                                              destroyedCopy.materialType);
 
-                            // Remove entity from scene
+                            // Screen shake proportional to entity size (reduced 90%)
+                            float avgScale = (destroyedCopy.scale[0] + destroyedCopy.scale[1] + destroyedCopy.scale[2]) / 3.0f;
+                            m_camera.AddScreenShake(0.008f * avgScale, 0.15f);
+
+                            // --- Breakable sub-pieces: spawn smaller non-destructible entities ---
+                            if (destroyedCopy.breakPieceCount > 0) {
+                                for (int bp = 0; bp < destroyedCopy.breakPieceCount; bp++) {
+                                    float angle = (bp / (float)destroyedCopy.breakPieceCount) * 6.283f;
+                                    float spread = avgScale * 0.6f + 0.5f;
+                                    float offX = cosf(angle) * spread;
+                                    float offZ = sinf(angle) * spread;
+
+                                    int idx = m_editorState.scene.AddEntity(destroyedCopy.name + "_debris", destroyedCopy.meshType);
+                                    auto& piece = m_editorState.scene.GetEntity(idx);
+                                    piece.meshName    = destroyedCopy.meshName;
+                                    piece.textureName = destroyedCopy.textureName;
+                                    // Random scale for each piece — small rubble
+                                    float pScale = 0.08f + (rand() % 100) / 800.0f; // 0.08 - 0.205
+                                    piece.scale[0] = destroyedCopy.scale[0] * pScale;
+                                    piece.scale[1] = destroyedCopy.scale[1] * pScale;
+                                    piece.scale[2] = destroyedCopy.scale[2] * pScale;
+                                    // Fall to ground: position at ground level
+                                    piece.position[0] = destroyedCopy.position[0] + offX;
+                                    piece.position[1] = piece.scale[1] * 0.5f; // sit on ground (y=0)
+                                    piece.position[2] = destroyedCopy.position[2] + offZ;
+                                    // Dramatic tilt — fallen rubble look
+                                    piece.rotation[0] = (float)(rand() % 60 - 30);
+                                    piece.rotation[1] = (float)(rand() % 360);
+                                    piece.rotation[2] = (float)(rand() % 60 - 30);
+                                    // Darken color for debris look
+                                    piece.color[0] = destroyedCopy.color[0] * 0.6f;
+                                    piece.color[1] = destroyedCopy.color[1] * 0.6f;
+                                    piece.color[2] = destroyedCopy.color[2] * 0.6f;
+                                    piece.color[3] = destroyedCopy.color[3];
+                                    piece.materialType  = destroyedCopy.materialType;
+                                    piece.destructible  = false;  // Sub-pieces are NOT destructible
+                                    piece.noCollision   = true;   // No collision on debris
+                                    piece.despawnTimer  = 8.0f;   // Despawn after 8 seconds
+                                    piece.castShadow    = true;
+                                    piece.visible       = true;
+                                }
+                            }
+
+                            // --- Structural support: auto-collapse entities resting on top ---
+                            // Destroyed entity bounding box top
+                            float dTop    = destroyedCopy.position[1] + destroyedCopy.scale[1] * 0.5f;
+                            float dBottom = destroyedCopy.position[1] - destroyedCopy.scale[1] * 0.5f;
+                            float dMinX   = destroyedCopy.position[0] - destroyedCopy.scale[0] * 0.5f;
+                            float dMaxX   = destroyedCopy.position[0] + destroyedCopy.scale[0] * 0.5f;
+                            float dMinZ   = destroyedCopy.position[2] - destroyedCopy.scale[2] * 0.5f;
+                            float dMaxZ   = destroyedCopy.position[2] + destroyedCopy.scale[2] * 0.5f;
+
+                            // Remove the destroyed entity
                             m_editorState.scene.RemoveEntity(hit.entityIndex);
 
                             // Deselect if it was selected
@@ -693,12 +850,73 @@ void Application::Update(float dt) {
                             else if (m_editorState.selectedEntity > hit.entityIndex)
                                 m_editorState.selectedEntity--;
 
+                            // Auto structural support: any entity whose bottom rests near
+                            // the top of the destroyed entity (or overlaps vertically and horizontally)
+                            // will collapse. This handles roofs on walls, stacked objects, etc.
+                            for (int si = m_editorState.scene.GetEntityCount() - 1; si >= 0; si--) {
+                                auto& supported = m_editorState.scene.GetEntity(si);
+
+                                // Check explicit name-based support OR automatic proximity
+                                bool shouldCollapse = false;
+
+                                // Name-based: supportedBy field matches destroyed entity name
+                                if (!supported.supportedBy.empty() && supported.supportedBy == destroyedCopy.name) {
+                                    shouldCollapse = true;
+                                }
+
+                                // Proximity-based: entity bottom is near destroyed entity top,
+                                // and they overlap horizontally (cube entities only —
+                                // custom meshes have complex shapes, skip auto-collapse)
+                                if (!shouldCollapse &&
+                                    destroyedCopy.meshType == MeshType::Cube &&
+                                    supported.meshType == MeshType::Cube) {
+                                    float sBottom = supported.position[1] - supported.scale[1] * 0.5f;
+                                    float sMinX   = supported.position[0] - supported.scale[0] * 0.5f;
+                                    float sMaxX   = supported.position[0] + supported.scale[0] * 0.5f;
+                                    float sMinZ   = supported.position[2] - supported.scale[2] * 0.5f;
+                                    float sMaxZ   = supported.position[2] + supported.scale[2] * 0.5f;
+
+                                    // Bottom of supported entity is within 1.5 units of top of destroyed
+                                    float tolerance = 1.5f;
+                                    bool restingOnTop = (sBottom >= dTop - tolerance) && (sBottom <= dTop + tolerance);
+                                    // Horizontal overlap check (XZ bounding boxes intersect)
+                                    bool overlapX = (sMinX < dMaxX) && (sMaxX > dMinX);
+                                    bool overlapZ = (sMinZ < dMaxZ) && (sMaxZ > dMinZ);
+
+                                    if (restingOnTop && overlapX && overlapZ) {
+                                        shouldCollapse = true;
+                                    }
+                                }
+
+                                if (shouldCollapse) {
+                                    // Cascade: explode the supported entity
+                                    XMFLOAT3 sc = { supported.position[0], supported.position[1], supported.position[2] };
+                                    XMFLOAT3 ss = { supported.scale[0], supported.scale[1], supported.scale[2] };
+                                    m_particles.SpawnMaterialExplosion(sc, ss, supported.color,
+                                                                      supported.debrisCount, supported.debrisScale,
+                                                                      supported.materialType);
+                                    float suppAvg = (supported.scale[0] + supported.scale[1] + supported.scale[2]) / 3.0f;
+                                    m_camera.AddScreenShake(0.006f * suppAvg, 0.12f);
+
+                                    m_editorState.scene.RemoveEntity(si);
+                                    if (m_editorState.selectedEntity == si)
+                                        m_editorState.selectedEntity = -1;
+                                    else if (m_editorState.selectedEntity > si)
+                                        m_editorState.selectedEntity--;
+
+                                    LOG_INFO("Supported entity collapsed!");
+                                }
+                            }
+
                             // Rebuild physics colliders
                             m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
 
                             LOG_INFO("Entity destroyed!");
                         }
                     }
+                } else {
+                    // Hit world geometry (no entity) — default sparks
+                    m_particles.SpawnImpactSparks(hit.hitPosition, hit.hitNormal, 6);
                 }
             }
         }
@@ -941,17 +1159,33 @@ void Application::Render() {
             const auto& e = m_editorState.scene.GetEntity(i);
             if (!e.visible || !e.castShadow) continue;
 
-            XMMATRIX entWorld = e.GetWorldMatrix();
-            XMStoreFloat4x4(&objData.World, XMMatrixTranspose(entWorld));
-            XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, entWorld));
-            m_cbPerObject.Update(ctx, objData);
-            m_cbPerObject.BindVS(ctx, 1);
-            // Route to correct mesh based on type
-            if (e.meshType == MeshType::Cube) {
-                m_cubeMesh.Draw(ctx);
-            } else if (e.meshType == MeshType::Custom) {
-                Mesh* customMesh = ResourceManager::Get().GetMesh(e.meshName);
-                if (customMesh) customMesh->Draw(ctx);
+            // Voxel chunk shadow: draw each active cell
+            if (e.voxelDestruction && e.meshType == MeshType::Cube) {
+                int res = e.voxelRes;
+                for (int vz = 0; vz < res; vz++)
+                for (int vy = 0; vy < res; vy++)
+                for (int vx = 0; vx < res; vx++) {
+                    int idx = vx + vy * res + vz * res * res;
+                    if (!e.IsVoxelCellActive(idx)) continue;
+                    XMMATRIX cellWorld = e.GetVoxelCellWorldMatrix(vx, vy, vz);
+                    XMStoreFloat4x4(&objData.World, XMMatrixTranspose(cellWorld));
+                    XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, cellWorld));
+                    m_cbPerObject.Update(ctx, objData);
+                    m_cbPerObject.BindVS(ctx, 1);
+                    m_cubeMesh.Draw(ctx);
+                }
+            } else {
+                XMMATRIX entWorld = e.GetWorldMatrix();
+                XMStoreFloat4x4(&objData.World, XMMatrixTranspose(entWorld));
+                XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, entWorld));
+                m_cbPerObject.Update(ctx, objData);
+                m_cbPerObject.BindVS(ctx, 1);
+                if (e.meshType == MeshType::Cube) {
+                    m_cubeMesh.Draw(ctx);
+                } else if (e.meshType == MeshType::Custom) {
+                    Mesh* customMesh = ResourceManager::Get().GetMesh(e.meshName);
+                    if (customMesh) customMesh->Draw(ctx);
+                }
             }
         }
 
@@ -1116,28 +1350,30 @@ void Application::Render() {
         const auto& e = m_editorState.scene.GetEntity(i);
         if (!e.visible) continue;
 
-        XMMATRIX entWorld = e.GetWorldMatrix();
-        XMStoreFloat4x4(&objData.World, XMMatrixTranspose(entWorld));
-        XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, entWorld));
-
         // Use damage-tinted color (darkens + flash on hit)
         float damagedColor[4];
         e.GetDamagedColor(damagedColor);
         objData.ObjectColor = { damagedColor[0], damagedColor[1], damagedColor[2], damagedColor[3] };
 
-        m_cbPerObject.Update(ctx, objData);
-        m_cbPerObject.BindBoth(ctx, 1);
+        // Fill hit decal data for the shader
+        for (int di = 0; di < Entity::MAX_HIT_DECALS; di++) {
+            if (di < e.hitDecalCount) {
+                objData.HitDecals[di] = { e.hitDecalPos[di].x, e.hitDecalPos[di].y,
+                                           e.hitDecalPos[di].z, e.hitDecalIntensity[di] };
+            } else {
+                objData.HitDecals[di] = { 0, 0, 0, 0 };
+            }
+        }
+        objData.HitDecalCount = static_cast<float>(e.hitDecalCount);
 
+        // Bind texture once for this entity
         if (e.meshType == MeshType::Cube) {
             Texture* ct = nullptr;
             if (!e.textureName.empty())
                 ct = ResourceManager::Get().GetTexture(e.textureName);
             if (ct) ct->Bind(ctx, 1);
             else if (whiteTex) whiteTex->Bind(ctx, 1);
-            m_cubeMesh.Draw(ctx);
-            m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
         } else if (e.meshType == MeshType::Custom) {
-            // Bind texture: textureName override > meshName fallback > white
             Texture* modelTex = nullptr;
             if (!e.textureName.empty())
                 modelTex = ResourceManager::Get().GetTexture(e.textureName);
@@ -1145,17 +1381,50 @@ void Application::Render() {
                 modelTex = ResourceManager::Get().GetTexture(e.meshName);
             if (modelTex) modelTex->Bind(ctx, 1);
             else if (whiteTex) whiteTex->Bind(ctx, 1);
+        }
 
-            Mesh* customMesh = ResourceManager::Get().GetMesh(e.meshName);
-            if (customMesh) {
-                customMesh->Draw(ctx);
-                m_renderer.TrackDrawCall(customMesh->GetIndexCount());
+        // Voxel chunk rendering: draw each active cell as a sub-cube
+        if (e.voxelDestruction && e.meshType == MeshType::Cube) {
+            int res = e.voxelRes;
+            for (int vz = 0; vz < res; vz++)
+            for (int vy = 0; vy < res; vy++)
+            for (int vx = 0; vx < res; vx++) {
+                int idx = vx + vy * res + vz * res * res;
+                if (!e.IsVoxelCellActive(idx)) continue;
+
+                XMMATRIX cellWorld = e.GetVoxelCellWorldMatrix(vx, vy, vz);
+                XMStoreFloat4x4(&objData.World, XMMatrixTranspose(cellWorld));
+                XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, cellWorld));
+                m_cbPerObject.Update(ctx, objData);
+                m_cbPerObject.BindBoth(ctx, 1);
+                m_cubeMesh.Draw(ctx);
+                m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
+            }
+        } else {
+            // Normal full-entity rendering
+            XMMATRIX entWorld = e.GetWorldMatrix();
+            XMStoreFloat4x4(&objData.World, XMMatrixTranspose(entWorld));
+            XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, entWorld));
+            m_cbPerObject.Update(ctx, objData);
+            m_cbPerObject.BindBoth(ctx, 1);
+
+            if (e.meshType == MeshType::Cube) {
+                m_cubeMesh.Draw(ctx);
+                m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
+            } else if (e.meshType == MeshType::Custom) {
+                Mesh* customMesh = ResourceManager::Get().GetMesh(e.meshName);
+                if (customMesh) {
+                    customMesh->Draw(ctx);
+                    m_renderer.TrackDrawCall(customMesh->GetIndexCount());
+                }
             }
         }
     }
 
-    // Reset ObjectColor after entities
+    // Reset ObjectColor + hit decals after entities
     objData.ObjectColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+    objData.HitDecalCount = 0.0f;
+    for (int di = 0; di < 4; di++) objData.HitDecals[di] = { 0, 0, 0, 0 };
     m_cbPerObject.Update(ctx, objData);
     m_cbPerObject.BindBoth(ctx, 1);
 
@@ -1376,30 +1645,7 @@ void Application::Render() {
                 { 0.2f, 0.8f, 1.0f, 0.8f });
         }
 
-        // Draw health bars above damaged entities
-        for (int i = 0; i < m_editorState.scene.GetEntityCount(); i++) {
-            const auto& e = m_editorState.scene.GetEntity(i);
-            if (!e.destructible || !e.visible) continue;
-            float frac = e.GetHealthFraction();
-            if (frac >= 1.0f) continue; // Don't show for full health
-
-            // Health bar position (above entity)
-            float barY = e.position[1] + e.scale[1] * 0.5f + 0.3f;
-            float barWidth = e.scale[0] * 0.8f;
-            float barHalf = barWidth * 0.5f;
-
-            // Background (dark)
-            XMFLOAT3 barLeft  = { e.position[0] - barHalf, barY, e.position[2] };
-            XMFLOAT3 barRight = { e.position[0] + barHalf, barY, e.position[2] };
-            m_debugRenderer.DrawLine(barLeft, barRight, { 0.2f, 0.2f, 0.2f, 0.8f });
-
-            // Health fill (green → yellow → red based on health)
-            float fillRight = e.position[0] - barHalf + barWidth * frac;
-            XMFLOAT4 hpColor;
-            if (frac > 0.5f) hpColor = { (1.0f - frac) * 2.0f, 1.0f, 0.0f, 1.0f }; // Green→Yellow
-            else             hpColor = { 1.0f, frac * 2.0f, 0.0f, 1.0f };            // Yellow→Red
-            m_debugRenderer.DrawLine(barLeft, { fillRight, barY, e.position[2] }, hpColor);
-        }
+        // Health bars disabled — entities still have health/damage but no visual bar
 
         // Nav grid debug visualization
         m_navGrid.DebugDraw(m_debugRenderer);

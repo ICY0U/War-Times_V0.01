@@ -45,6 +45,11 @@ public:
             file << "health = " << e.maxHealth << "\n";
             file << "debris_count = " << e.debrisCount << "\n";
             file << "debris_scale = " << e.debrisScale << "\n";
+            file << "material_type = " << static_cast<int>(e.materialType) << "\n";
+            file << "supported_by = " << e.supportedBy << "\n";
+            file << "break_pieces = " << e.breakPieceCount << "\n";
+            file << "voxel_destruct = " << (e.voxelDestruction ? 1 : 0) << "\n";
+            file << "voxel_res = " << e.voxelRes << "\n";
             file << "\n";
         }
 
@@ -126,6 +131,14 @@ public:
             }
             else if (key == "debris_count") currentEntity.debrisCount = std::stoi(val);
             else if (key == "debris_scale") currentEntity.debrisScale = std::stof(val);
+            else if (key == "material_type") currentEntity.materialType = static_cast<MaterialType>(std::stoi(val));
+            else if (key == "supported_by") currentEntity.supportedBy = val;
+            else if (key == "break_pieces") currentEntity.breakPieceCount = std::stoi(val);
+            else if (key == "voxel_destruct") currentEntity.voxelDestruction = (std::stoi(val) != 0);
+            else if (key == "voxel_res") {
+                currentEntity.voxelRes = std::stoi(val);
+                currentEntity.ResetVoxelMask();
+            }
         }
 
         // Commit last entity if file didn't end with blank line

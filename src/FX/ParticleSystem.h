@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdlib>
 #include <algorithm>
+#include "Core/Entity.h"
 
 namespace WT {
 
@@ -230,6 +231,106 @@ public:
         SpawnSmoke(center, entityScale, debrisCount);
         // Fire embers
         SpawnFireEmbers(center, entityScale, debrisCount);
+    }
+
+    // ---- Material-aware FX ----
+
+    // Spawn impact FX at hit point based on material type
+    void SpawnMaterialImpact(const XMFLOAT3& hitPos, const XMFLOAT3& hitNormal,
+                             const float entityColor[4], MaterialType mat) {
+        switch (mat) {
+        case MaterialType::Wood:
+            SpawnDustPuff(hitPos, hitNormal, entityColor, 6);    // More dust
+            SpawnImpactSparks(hitPos, hitNormal, 2);             // Fewer sparks
+            SpawnFireEmbers(hitPos, { 0.3f, 0.3f, 0.3f }, 2);   // Tiny embers
+            break;
+        case MaterialType::Metal:
+            SpawnImpactSparks(hitPos, hitNormal, 12);            // Lots of sparks
+            SpawnDustPuff(hitPos, hitNormal, entityColor, 1);    // Minimal dust
+            break;
+        case MaterialType::Glass: {
+            // Fast white/clear sparks
+            for (int i = 0; i < 10; i++) {
+                Particle p;
+                p.type = Particle::Type::Spark;
+                p.position = hitPos;
+                float speed = RandRange(5.0f, 12.0f);
+                XMFLOAT3 dir = {
+                    hitNormal.x + RandRange(-0.7f, 0.7f),
+                    hitNormal.y + RandRange(-0.3f, 0.7f),
+                    hitNormal.z + RandRange(-0.7f, 0.7f)
+                };
+                XMVECTOR d = XMVector3Normalize(XMLoadFloat3(&dir));
+                XMStoreFloat3(&p.velocity, d * speed);
+                p.scale = { 0.015f, 0.015f, 0.015f };
+                p.color[0] = 0.9f; p.color[1] = 0.95f; p.color[2] = 1.0f; p.color[3] = 0.8f;
+                p.maxLifetime = RandRange(0.15f, 0.4f);
+                p.gravity = 8.0f;
+                p.groundY = m_groundY;
+                p.alive = true;
+                m_particles.push_back(p);
+            }
+            break;
+        }
+        default: // Concrete
+            SpawnImpactSparks(hitPos, hitNormal, 6);
+            SpawnDustPuff(hitPos, hitNormal, entityColor, 4);
+            break;
+        }
+    }
+
+    // Spawn material-aware explosion on destroy
+    void SpawnMaterialExplosion(const XMFLOAT3& center, const XMFLOAT3& entityScale,
+                                const float entityColor[4], int debrisCount,
+                                float debrisScaleFactor, MaterialType mat) {
+        XMFLOAT3 up = { 0, 1, 0 };
+        switch (mat) {
+        case MaterialType::Wood: {
+            // Warm brown debris + lots of embers + dust
+            float woodColor[4] = { entityColor[0] * 0.8f, entityColor[1] * 0.6f, entityColor[2] * 0.4f, 1.0f };
+            SpawnDebris(center, entityScale, woodColor, debrisCount, debrisScaleFactor * 0.7f);
+            SpawnFireEmbers(center, entityScale, debrisCount * 2);
+            SpawnDustPuff(center, up, entityColor, debrisCount);
+            SpawnSmoke(center, entityScale, debrisCount / 2 + 1);
+            break;
+        }
+        case MaterialType::Metal: {
+            // Metallic gray debris + tons of sparks + minimal dust
+            float metalColor[4] = { 0.5f, 0.5f, 0.55f, 1.0f };
+            SpawnDebris(center, entityScale, metalColor, debrisCount, debrisScaleFactor);
+            SpawnImpactSparks(center, up, debrisCount * 4);
+            SpawnSmoke(center, entityScale, debrisCount / 3 + 1);
+            break;
+        }
+        case MaterialType::Glass: {
+            // Mostly fast sharp sparks, minimal debris
+            float glassColor[4] = { 0.85f, 0.9f, 0.95f, 0.6f };
+            SpawnDebris(center, entityScale, glassColor, debrisCount / 2 + 1, debrisScaleFactor * 0.4f);
+            for (int i = 0; i < debrisCount * 3; i++) {
+                Particle p;
+                p.type = Particle::Type::Spark;
+                p.position = {
+                    center.x + RandRange(-entityScale.x * 0.3f, entityScale.x * 0.3f),
+                    center.y + RandRange(-entityScale.y * 0.2f, entityScale.y * 0.3f),
+                    center.z + RandRange(-entityScale.z * 0.3f, entityScale.z * 0.3f)
+                };
+                float speed = RandRange(4.0f, 10.0f);
+                float angle = RandRange(0.0f, 6.283f);
+                p.velocity = { cosf(angle) * speed, RandRange(2.0f, 6.0f), sinf(angle) * speed };
+                p.scale = { 0.01f, 0.01f, 0.01f };
+                p.color[0] = 0.9f; p.color[1] = 0.95f; p.color[2] = 1.0f; p.color[3] = 0.9f;
+                p.maxLifetime = RandRange(0.2f, 0.5f);
+                p.gravity = 10.0f;
+                p.groundY = m_groundY;
+                p.alive = true;
+                m_particles.push_back(p);
+            }
+            break;
+        }
+        default: // Concrete
+            SpawnExplosion(center, entityScale, entityColor, debrisCount, debrisScaleFactor);
+            break;
+        }
     }
 
     // ---- Update ----

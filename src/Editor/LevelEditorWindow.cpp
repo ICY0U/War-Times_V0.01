@@ -1,6 +1,8 @@
 #include "LevelEditorWindow.h"
 #include "EditorPanels.h"      // for EditorState
 #include "LevelFile.h"
+#include "PCG/LevelGenerator.h"
+#include "Core/ResourceManager.h"
 #include "Util/Log.h"
 #include "Util/MathHelpers.h"
 #include <windowsx.h>   // GET_X_LPARAM, GET_Y_LPARAM
@@ -218,11 +220,22 @@ bool LevelEditorWindow::Init(ID3D11Device* sharedDevice, HINSTANCE hInstance, in
     exeDir = exeDir.substr(0, exeDir.find_last_of(L"\\/") + 1);
     m_debugRenderer.Init(m_device, exeDir + L"shaders/");
 
-    // Levels directory
+    // Levels directory — use source directory (../../levels/ relative to exe)
+    // so saved levels persist across clean builds (same pattern as models)
     char exeDirBuf[MAX_PATH];
     WideCharToMultiByte(CP_ACP, 0, exeDir.c_str(), -1, exeDirBuf, MAX_PATH, nullptr, nullptr);
-    m_levelsDirectory = std::string(exeDirBuf) + "levels/";
+    std::string exeDirStr(exeDirBuf);
+    m_levelsDirectory = exeDirStr + "../../levels/";
+    // Normalize the path to resolve the ../.. 
+    try {
+        auto canonical = std::filesystem::weakly_canonical(m_levelsDirectory);
+        m_levelsDirectory = canonical.string() + "\\";
+    } catch (...) {
+        // Fallback to exe-relative if canonical fails
+        m_levelsDirectory = exeDirStr + "levels/";
+    }
     std::filesystem::create_directories(m_levelsDirectory);
+    LOG_INFO("Levels directory: %s", m_levelsDirectory.c_str());
 
     // Init ImGui for this window
     if (!InitImGui()) {
@@ -551,9 +564,22 @@ int LevelEditorWindow::PickEntity(const EditorState& state, int mx, int my) {
         const auto& e = state.scene.GetEntity(i);
         if (!e.visible) continue;
 
+        // Use mesh bounds for custom meshes, entity scale for cubes
         XMFLOAT3 half = { e.scale[0] * 0.5f, e.scale[1] * 0.5f, e.scale[2] * 0.5f };
-        XMFLOAT3 bmin = { e.position[0] - half.x, e.position[1] - half.y, e.position[2] - half.z };
-        XMFLOAT3 bmax = { e.position[0] + half.x, e.position[1] + half.y, e.position[2] + half.z };
+        XMFLOAT3 center = { e.position[0], e.position[1], e.position[2] };
+        if (e.meshType == MeshType::Custom && !e.meshName.empty()) {
+            Mesh* mesh = ResourceManager::Get().GetMesh(e.meshName);
+            if (mesh && mesh->HasBounds()) {
+                auto bc = mesh->GetBoundsCenter();
+                auto bh = mesh->GetBoundsHalfExtent();
+                center = { e.position[0] + bc.x * e.scale[0],
+                           e.position[1] + bc.y * e.scale[1],
+                           e.position[2] + bc.z * e.scale[2] };
+                half = { bh.x * e.scale[0], bh.y * e.scale[1], bh.z * e.scale[2] };
+            }
+        }
+        XMFLOAT3 bmin = { center.x - half.x, center.y - half.y, center.z - half.z };
+        XMFLOAT3 bmax = { center.x + half.x, center.y + half.y, center.z + half.z };
 
         float tmin = -999999.0f, tmax = 999999.0f;
         auto slab = [&](float rO, float rD, float mn, float mx2) -> bool {
@@ -581,6 +607,17 @@ int LevelEditorWindow::PickGizmoAxis(const EditorState& state, int mx, int my) {
 
     const auto& e = state.scene.GetEntity(state.selectedEntity);
     XMFLOAT3 pos = { e.position[0], e.position[1], e.position[2] };
+
+    // Offset by mesh bounds center for custom meshes
+    if (e.meshType == MeshType::Custom) {
+        auto mesh = ResourceManager::Get().GetMesh(e.meshName);
+        if (mesh && mesh->HasBounds()) {
+            auto bc = mesh->GetBoundsCenter();
+            pos.x += bc.x * e.scale[0];
+            pos.y += bc.y * e.scale[1];
+            pos.z += bc.z * e.scale[2];
+        }
+    }
 
     XMMATRIX vp = GetViewMatrix() * GetProjectionMatrix();
 
@@ -1051,6 +1088,17 @@ void LevelEditorWindow::RenderGizmo(ID3D11DeviceContext* ctx, const EditorState&
     const auto& e = state.scene.GetEntity(state.selectedEntity);
     XMFLOAT3 c = { e.position[0], e.position[1], e.position[2] };
 
+    // Offset by mesh bounds center for custom meshes
+    if (e.meshType == MeshType::Custom) {
+        auto mesh = ResourceManager::Get().GetMesh(e.meshName);
+        if (mesh && mesh->HasBounds()) {
+            auto bc = mesh->GetBoundsCenter();
+            c.x += bc.x * e.scale[0];
+            c.y += bc.y * e.scale[1];
+            c.z += bc.z * e.scale[2];
+        }
+    }
+
     float gl = m_gizmoLength;
     float arrowSize = gl * 0.12f;
 
@@ -1235,6 +1283,7 @@ void LevelEditorWindow::DrawOutlinerPanel(EditorState& state) {
 
         DrawToolSection(state);
         DrawLevelSection(state);
+        DrawPCGSection(state);
         DrawEntitySection(state);
         DrawPrefabSection(state);
         DrawSceneSection(state);
@@ -1415,6 +1464,105 @@ void LevelEditorWindow::DrawLevelSection(EditorState& state) {
         ImGui::PopStyleColor();
     }
     ImGui::PopStyleColor();
+
+    EndSection();
+}
+
+// ==================== PCG Level Generator Section ====================
+void LevelEditorWindow::DrawPCGSection(EditorState& state) {
+    if (!BeginSection("PCG", "Level Generator", false)) return;
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
+    ImGui::Text("Procedural Urban Warfare");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    PropertyLabel("Seed");
+    int seedInt = static_cast<int>(m_pcgSettings.seed);
+    if (ImGui::DragInt("##pcgseed", &seedInt, 1.0f, 0, 999999)) {
+        m_pcgSettings.seed = static_cast<uint32_t>(seedInt);
+    }
+    ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+    ImGui::Text("  0 = random seed");
+    ImGui::PopStyleColor();
+
+    PropertyLabel("Arena Size");
+    ImGui::DragFloat("##pcgarena", &m_pcgSettings.arenaSize, 0.5f, 20.0f, 100.0f, "%.0f");
+
+    PropertyLabel("Grid");
+    ImGui::PushItemWidth(50);
+    ImGui::DragInt("##pcgcols", &m_pcgSettings.gridCols, 0.05f, 2, 5);
+    ImGui::SameLine(); ImGui::Text("x");
+    ImGui::SameLine();
+    ImGui::DragInt("##pcgrows", &m_pcgSettings.gridRows, 0.05f, 2, 5);
+    ImGui::PopItemWidth();
+
+    PropertyLabel("Street Width");
+    ImGui::DragFloat("##pcgstreet", &m_pcgSettings.streetWidth, 0.1f, 2.0f, 8.0f, "%.1f");
+
+    PropertyLabel("Wall Height");
+    ImGui::DragFloat("##pcgwallh", &m_pcgSettings.wallHeight, 0.1f, 2.0f, 8.0f, "%.1f");
+
+    PropertyLabel("Building H");
+    ImGui::PushItemWidth(60);
+    ImGui::DragFloat("##pcgbhmin", &m_pcgSettings.buildingMinH, 0.1f, 1.5f, 8.0f, "%.1f");
+    ImGui::SameLine(); ImGui::Text("-");
+    ImGui::SameLine();
+    ImGui::DragFloat("##pcgbhmax", &m_pcgSettings.buildingMaxH, 0.1f, 2.0f, 10.0f, "%.1f");
+    ImGui::PopItemWidth();
+
+    PropertyLabel("Building %");
+    float bpct = m_pcgSettings.buildingChance * 100.0f;
+    if (ImGui::DragFloat("##pcgbchance", &bpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+        m_pcgSettings.buildingChance = bpct / 100.0f;
+
+    PropertyLabel("Roof %");
+    float rpct = m_pcgSettings.roofChance * 100.0f;
+    if (ImGui::DragFloat("##pcgroof", &rpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+        m_pcgSettings.roofChance = rpct / 100.0f;
+
+    PropertyLabel("Cover Objects");
+    ImGui::DragInt("##pcgcover", &m_pcgSettings.coverDensity, 0.2f, 0, 50);
+
+    PropertyLabel("Detail Props");
+    ImGui::DragInt("##pcgdetail", &m_pcgSettings.detailDensity, 0.2f, 0, 60);
+
+    ImGui::Spacing();
+    PropertyLabel("Options");
+    ImGui::Checkbox("Windows##pcgwin", &m_pcgSettings.addWindows);
+    ImGui::SameLine();
+    ImGui::Checkbox("Fences##pcgfen", &m_pcgSettings.addFences);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Generate button
+    ImVec4 genColor(0.2f, 0.6f, 0.2f, 1.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, genColor);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.5f, 0.15f, 1.0f));
+    if (ImGui::Button("Generate Level", ImVec2(-1, 28))) {
+        LevelGenerator gen;
+        gen.settings = m_pcgSettings;
+        gen.Generate(state.scene);
+        state.selectedEntity = -1;
+        state.physicsRebuildRequested = true;
+        state.navRebuildRequested = true;
+        state.entityDirty = true;
+        m_unsavedChanges = true;
+        m_currentLevelPath.clear();
+        LOG_INFO("PCG: Generated level (seed %u, %d entities)",
+                 gen.GetUsedSeed(), state.scene.GetEntityCount());
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+    ImGui::Text("  Replaces current level!");
+    ImGui::PopStyleColor();
+
+    ImGui::Spacing();
+    ImGui::Checkbox("Random level on launch##pcglaunch", &state.pcgOnLaunch);
 
     EndSection();
 }
@@ -1608,6 +1756,15 @@ void LevelEditorWindow::DrawEntitySection(EditorState& state) {
         ImGui::PopStyleColor();
         ImGui::Spacing();
 
+        // Material type combo
+        PropertyLabel("Material");
+        const char* matNames[] = { "Concrete", "Wood", "Metal", "Glass" };
+        int matIdx = static_cast<int>(e.materialType);
+        if (ImGui::Combo("##leentmat", &matIdx, matNames, IM_ARRAYSIZE(matNames))) {
+            e.materialType = static_cast<MaterialType>(matIdx);
+            m_unsavedChanges = true;
+        }
+
         PropertyLabel("Destructible");
         if (ImGui::Checkbox("##leentdest", &e.destructible)) m_unsavedChanges = true;
 
@@ -1629,6 +1786,29 @@ void LevelEditorWindow::DrawEntitySection(EditorState& state) {
             if (ImGui::DragInt("##leentdc", &e.debrisCount, 0.1f, 1, 50)) m_unsavedChanges = true;
             PropertyLabel("Debris Scale");
             if (ImGui::DragFloat("##leentds", &e.debrisScale, 0.01f, 0.05f, 2.0f, "%.2f")) m_unsavedChanges = true;
+            PropertyLabel("Break Pieces");
+            if (ImGui::DragInt("##leentbp", &e.breakPieceCount, 0.1f, 0, 8)) m_unsavedChanges = true;
+
+            // Structural support
+            PropertyLabel("Supported By");
+            char supBuf[128] = {};
+            strncpy(supBuf, e.supportedBy.c_str(), sizeof(supBuf) - 1);
+            if (ImGui::InputText("##leentsup", supBuf, sizeof(supBuf))) {
+                e.supportedBy = supBuf;
+                m_unsavedChanges = true;
+            }
+
+            // Voxel chunk destruction
+            PropertyLabel("Voxel Destruct");
+            if (ImGui::Checkbox("##leentvox", &e.voxelDestruction)) m_unsavedChanges = true;
+            if (e.voxelDestruction) {
+                ImGui::SameLine();
+                PropertyLabel("Res");
+                if (ImGui::DragInt("##leentvoxres", &e.voxelRes, 0.05f, 2, 8)) {
+                    e.ResetVoxelMask();
+                    m_unsavedChanges = true;
+                }
+            }
 
             float frac = e.GetHealthFraction();
             ImVec4 barColor;
@@ -1648,6 +1828,10 @@ void LevelEditorWindow::DrawEntitySection(EditorState& state) {
             if (ImGui::Button("Reset HP", ImVec2(70, 0))) {
                 e.health = e.maxHealth;
                 e.damageFlashTimer = 0.0f;
+                e.hitDecalCount = 0;
+                e.hitDecalNext = 0;
+                if (e.voxelDestruction)
+                    e.ResetVoxelMask();
             }
         }
     }
@@ -1728,9 +1912,11 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
         { "Structures", "PreFabs/Structures/", "Walls/",       {0.20f,0.18f,0.22f,1}, {0.28f,0.24f,0.30f,1} },
         { "Doors",      "PreFabs/Doors/",      "Walls/",       {0.22f,0.18f,0.18f,1}, {0.30f,0.24f,0.24f,1} },
         { "Props",      "PreFabs/Props/",      "Props/",       {0.24f,0.20f,0.14f,1}, {0.32f,0.27f,0.18f,1} },
+        { "Buildings",  "Prefabs/",            "",             {0.16f,0.22f,0.26f,1}, {0.22f,0.30f,0.36f,1} },
     };
+    const int catCount = sizeof(cats) / sizeof(cats[0]);
 
-    for (int c = 0; c < 5; c++) {
+    for (int c = 0; c < catCount; c++) {
         if (c % 2 != 0) ImGui::SameLine();
 
         // Count models in this category
@@ -1789,6 +1975,10 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
                 if (ImGui::Selectable("  Cover (Cube 3x1x0.4)"))
                     spawnCube("Cover", 3,1,0.4f, 0.40f,0.42f,0.38f, 150, 0.5f);
             }
+            else if (c == 5) { // Buildings
+                if (ImGui::Selectable("  Building Block (Cube 6x4x6)"))
+                    spawnCube("Building", 6,4,6, 0.48f,0.46f,0.44f, 500, 2.0f, 12, 0.4f);
+            }
 
             ImGui::Spacing();
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.65f, 0.65f, 0.7f, 1.0f));
@@ -1796,24 +1986,43 @@ void LevelEditorWindow::DrawPrefabSection(EditorState& state) {
             ImGui::PopStyleColor();
             ImGui::Separator();
 
-            bool anyModel = false;
+            // Collect models in this category
+            std::vector<std::string> catModels;
             for (auto& mname : allModels) {
-                if (mname.rfind(cats[c].folder, 0) == 0) {
-                    std::string display = mname.substr(mname.rfind('/') + 1);
-                    // Replace underscores with spaces for readability
-                    for (auto& ch : display) if (ch == '_') ch = ' ';
-                    char selLabel[128];
-                    snprintf(selLabel, sizeof(selLabel), "  %s##%s", display.c_str(), mname.c_str());
-                    if (ImGui::Selectable(selLabel)) {
-                        spawnModel(mname, cats[c].texFolder, 0.0f);
-                    }
-                    anyModel = true;
+                if (mname.rfind(cats[c].folder, 0) == 0)
+                    catModels.push_back(mname);
+            }
+
+            for (auto& mname : catModels) {
+                std::string display = mname.substr(mname.rfind('/') + 1);
+                for (auto& ch : display) if (ch == '_') ch = ' ';
+                char selLabel[128];
+                snprintf(selLabel, sizeof(selLabel), "  %s##%s", display.c_str(), mname.c_str());
+                if (ImGui::Selectable(selLabel)) {
+                    spawnModel(mname, cats[c].texFolder, 0.0f);
                 }
             }
-            if (!anyModel) {
+            if (catModels.empty()) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f,0.4f,0.4f,1));
                 ImGui::Text("  No models loaded");
                 ImGui::PopStyleColor();
+            }
+
+            // --- Batch Import All ---
+            if (!catModels.empty()) {
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.45f, 0.15f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.55f, 0.20f, 1.0f));
+                char batchLabel[64];
+                snprintf(batchLabel, sizeof(batchLabel), "Spawn All (%d)##batch%d", (int)catModels.size(), c);
+                if (ImGui::Button(batchLabel, ImVec2(-1, 28))) {
+                    for (auto& mname : catModels) {
+                        spawnModel(mname, cats[c].texFolder, 0.0f);
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::PopStyleColor(2);
             }
 
             ImGui::EndPopup();

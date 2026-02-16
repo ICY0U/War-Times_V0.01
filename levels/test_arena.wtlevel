@@ -1,11 +1,7 @@
 # War Times Level File
 # Version 1
-# Test Arena - Medium-sized combat area (~40x40m)
-entity_count = 62
+entity_count = 72
 
-# =========================================
-# GROUND FLOOR
-# =========================================
 [entity]
 name = Ground
 mesh_type = 0
@@ -21,10 +17,12 @@ destructible = 0
 health = 100
 debris_count = 0
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# PERIMETER WALLS (outer boundary)
-# =========================================
 [entity]
 name = Wall_North
 mesh_type = 0
@@ -40,6 +38,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Wall_South
@@ -56,6 +59,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Wall_East
@@ -72,6 +80,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Wall_West
@@ -88,10 +101,12 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# BUILDING A — Northwest compound (2-story)
-# =========================================
 [entity]
 name = BuildingA_FloorWall_S
 mesh_type = 0
@@ -107,6 +122,11 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_FloorWall_N
@@ -123,6 +143,11 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_FloorWall_W
@@ -139,6 +164,11 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_FloorWall_E
@@ -155,6 +185,11 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_Roof
@@ -171,6 +206,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_2ndFloor_Wall
@@ -187,10 +227,12 @@ destructible = 1
 health = 150
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# BUILDING B — Southeast corner (warehouse)
-# =========================================
 [entity]
 name = BuildingB_Wall_N
 mesh_type = 0
@@ -206,6 +248,11 @@ destructible = 1
 health = 250
 debris_count = 10
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Wall_S
@@ -222,6 +269,11 @@ destructible = 1
 health = 250
 debris_count = 10
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Wall_W
@@ -238,6 +290,11 @@ destructible = 1
 health = 250
 debris_count = 10
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Wall_E
@@ -254,6 +311,11 @@ destructible = 1
 health = 250
 debris_count = 10
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Roof
@@ -270,10 +332,12 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# CENTER AREA — scattered cover
-# =========================================
 [entity]
 name = Cover_Crate_01
 mesh_type = 0
@@ -289,6 +353,11 @@ destructible = 1
 health = 80
 debris_count = 6
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Crate_02
@@ -305,6 +374,11 @@ destructible = 1
 health = 80
 debris_count = 6
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Crate_03
@@ -321,6 +395,11 @@ destructible = 1
 health = 60
 debris_count = 5
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Wall_Center
@@ -337,6 +416,11 @@ destructible = 1
 health = 150
 debris_count = 8
 debris_scale = 0.35
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Barrel_01
@@ -353,6 +437,11 @@ destructible = 1
 health = 50
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Barrel_02
@@ -369,6 +458,11 @@ destructible = 1
 health = 50
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Cover_Barrel_03
@@ -385,10 +479,12 @@ destructible = 1
 health = 50
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# MID-FIELD WALLS (lane dividers)
-# =========================================
 [entity]
 name = MidWall_01
 mesh_type = 0
@@ -404,6 +500,11 @@ destructible = 1
 health = 180
 debris_count = 8
 debris_scale = 0.35
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = MidWall_02
@@ -420,6 +521,11 @@ destructible = 1
 health = 150
 debris_count = 7
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = MidWall_03
@@ -436,10 +542,12 @@ destructible = 1
 health = 150
 debris_count = 7
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# GUARD TOWER — Northeast (elevated platform)
-# =========================================
 [entity]
 name = Tower_Platform
 mesh_type = 0
@@ -455,6 +563,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Pillar_1
@@ -471,6 +584,11 @@ destructible = 1
 health = 120
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Pillar_2
@@ -487,6 +605,11 @@ destructible = 1
 health = 120
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Pillar_3
@@ -503,6 +626,11 @@ destructible = 1
 health = 120
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Pillar_4
@@ -519,6 +647,11 @@ destructible = 1
 health = 120
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Rail_N
@@ -535,6 +668,11 @@ destructible = 1
 health = 80
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Tower_Rail_E
@@ -551,10 +689,12 @@ destructible = 1
 health = 80
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# SANDBAG BUNKER — Southwest
-# =========================================
 [entity]
 name = Sandbag_Front
 mesh_type = 0
@@ -570,6 +710,11 @@ destructible = 1
 health = 120
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Sandbag_Left
@@ -586,6 +731,11 @@ destructible = 1
 health = 120
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Sandbag_Right
@@ -602,10 +752,12 @@ destructible = 1
 health = 120
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# SCATTERED PROPS — environmental detail
-# =========================================
 [entity]
 name = Crate_Stack_01
 mesh_type = 0
@@ -621,6 +773,11 @@ destructible = 1
 health = 60
 debris_count = 5
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Crate_Stack_02
@@ -637,6 +794,11 @@ destructible = 1
 health = 50
 debris_count = 5
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Concrete_Block_01
@@ -653,6 +815,11 @@ destructible = 1
 health = 200
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Concrete_Block_02
@@ -669,6 +836,11 @@ destructible = 1
 health = 200
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Barrel_Cluster_01
@@ -685,6 +857,11 @@ destructible = 1
 health = 40
 debris_count = 4
 debris_scale = 0.15
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Barrel_Cluster_02
@@ -701,6 +878,11 @@ destructible = 1
 health = 40
 debris_count = 4
 debris_scale = 0.15
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Barrel_Cluster_03
@@ -717,10 +899,12 @@ destructible = 1
 health = 40
 debris_count = 4
 debris_scale = 0.15
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# CORRIDOR / ALLEYWAY — East side passage
-# =========================================
 [entity]
 name = Alley_Wall_W
 mesh_type = 0
@@ -736,6 +920,11 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.35
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Alley_Wall_E
@@ -752,10 +941,12 @@ destructible = 1
 health = 200
 debris_count = 8
 debris_scale = 0.35
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# RAISED PLATFORM — West central
-# =========================================
 [entity]
 name = Platform_West
 mesh_type = 0
@@ -771,6 +962,11 @@ destructible = 0
 health = 100
 debris_count = 6
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Platform_West_Rail
@@ -787,10 +983,12 @@ destructible = 1
 health = 60
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# VEHICLE WRECK — Center-south (large cover)
-# =========================================
 [entity]
 name = Vehicle_Body
 mesh_type = 0
@@ -806,6 +1004,11 @@ destructible = 0
 health = 100
 debris_count = 8
 debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = Vehicle_Cab
@@ -822,10 +1025,12 @@ destructible = 1
 health = 80
 debris_count = 5
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# INTERIOR PROPS for Building A
-# =========================================
 [entity]
 name = BuildingA_Table
 mesh_type = 0
@@ -841,6 +1046,11 @@ destructible = 1
 health = 40
 debris_count = 4
 debris_scale = 0.2
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_Table_Leg1
@@ -857,6 +1067,11 @@ destructible = 1
 health = 20
 debris_count = 2
 debris_scale = 0.1
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_Table_Leg2
@@ -873,6 +1088,11 @@ destructible = 1
 health = 20
 debris_count = 2
 debris_scale = 0.1
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_Table_Leg3
@@ -889,6 +1109,11 @@ destructible = 1
 health = 20
 debris_count = 2
 debris_scale = 0.1
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingA_Table_Leg4
@@ -905,10 +1130,12 @@ destructible = 1
 health = 20
 debris_count = 2
 debris_scale = 0.1
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# INTERIOR PROPS for Building B
-# =========================================
 [entity]
 name = BuildingB_Crate_01
 mesh_type = 0
@@ -924,6 +1151,11 @@ destructible = 1
 health = 80
 debris_count = 6
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Crate_02
@@ -940,6 +1172,11 @@ destructible = 1
 health = 80
 debris_count = 6
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = BuildingB_Shelf
@@ -956,10 +1193,12 @@ destructible = 1
 health = 60
 debris_count = 5
 debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
-# =========================================
-# SMALL COVER WALLS — scattered mid-field
-# =========================================
 [entity]
 name = LowWall_01
 mesh_type = 0
@@ -975,6 +1214,11 @@ destructible = 1
 health = 100
 debris_count = 5
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = LowWall_02
@@ -991,6 +1235,11 @@ destructible = 1
 health = 100
 debris_count = 5
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 
 [entity]
 name = LowWall_03
@@ -1007,4 +1256,261 @@ destructible = 1
 health = 100
 debris_count = 5
 debris_scale = 0.25
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Window_Side_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -6 1.8 3
+rotation = 0 90 0
+scale = 2.5 1.8 0.08
+color = 0.55 0.7 0.82 0.6
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 25
+debris_count = 6
+debris_scale = 0.12
+material_type = 3
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Window_Large
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 8 2 8.5
+rotation = 0 0 0
+scale = 4 2.5 0.1
+color = 0.5 0.65 0.78 0.5
+visible = 1
+cast_shadow = 0
+destructible = 1
+health = 40
+debris_count = 10
+debris_scale = 0.2
+material_type = 3
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Row_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -15 1.5 -3
+rotation = 0 0 0
+scale = 5 1 0.1
+color = 0.55 0.4 0.2 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 40
+debris_count = 4
+debris_scale = 0.2
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Row_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -15 1.5 -5
+rotation = 0 0 0
+scale = 5 1 0.1
+color = 0.5 0.38 0.18 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 40
+debris_count = 4
+debris_scale = 0.2
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Post_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -12.5 1.6 -3
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Post_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -17.5 1.6 -3
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Post_03
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -12.5 1.6 -5
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Post_04
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -17.5 1.6 -5
+rotation = 0 0 0
+scale = 0.15 1.2 0.15
+color = 0.45 0.32 0.15 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 30
+debris_count = 2
+debris_scale = 0.1
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Fence_Angled
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -13 1.5 -1
+rotation = 0 45 0
+scale = 3 1 0.1
+color = 0.52 0.38 0.18 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 35
+debris_count = 4
+debris_scale = 0.18
+material_type = 1
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Thick_Concrete_Wall
+mesh_type = 0
+mesh_name = 
+texture_name = Walls/texture
+position = 14 1.5 5
+rotation = 0 0 0
+scale = 5 3 1.5
+color = 0.5 0.48 0.45 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 400
+debris_count = 12
+debris_scale = 0.4
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Metal_Plate_01
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 11.7 0.75 -3
+rotation = 0 20 0
+scale = 2 1.5 0.15
+color = 0.4 0.42 0.45 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 200
+debris_count = 6
+debris_scale = 0.25
+material_type = 2
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+
+[entity]
+name = Metal_Plate_02
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 14.2 0.75 -4.5
+rotation = 0 -10 0
+scale = 2 1.5 0.15
+color = 0.38 0.4 0.43 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 200
+debris_count = 6
+debris_scale = 0.25
+material_type = 2
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
 

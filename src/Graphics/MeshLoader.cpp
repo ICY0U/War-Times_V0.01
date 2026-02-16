@@ -6,6 +6,8 @@
 #include <fstream>
 #include <filesystem>
 #include <vector>
+#include <cfloat>
+#include <algorithm>
 
 namespace WT {
 
@@ -75,13 +77,28 @@ bool MeshLoader::LoadMesh(ID3D11Device* device, const std::wstring& filepath,
         return false;
     }
 
+    // ---- Compute bounds from vertex positions ----
+    XMFLOAT3 mn = { FLT_MAX, FLT_MAX, FLT_MAX };
+    XMFLOAT3 mx = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+    for (UINT i = 0; i < vertexCount; i++) {
+        const auto& v = vertices[i];
+        mn.x = (std::min)(mn.x, v.Position.x);
+        mn.y = (std::min)(mn.y, v.Position.y);
+        mn.z = (std::min)(mn.z, v.Position.z);
+        mx.x = (std::max)(mx.x, v.Position.x);
+        mx.y = (std::max)(mx.y, v.Position.y);
+        mx.z = (std::max)(mx.z, v.Position.z);
+    }
+
     // ---- Create GPU buffers ----
     if (!outMesh.Create(device, vertices, indices)) {
         LOG_ERROR("MeshLoader: Failed to create GPU mesh");
         return false;
     }
 
-    LOG_INFO("MeshLoader: Loaded %u verts, %u indices", vertexCount, indexCount);
+    outMesh.SetBounds(mn, mx);
+    LOG_INFO("MeshLoader: Loaded %u verts, %u indices (bounds [%.1f,%.1f,%.1f]-[%.1f,%.1f,%.1f])",
+             vertexCount, indexCount, mn.x, mn.y, mn.z, mx.x, mx.y, mx.z);
     return true;
 }
 

@@ -360,15 +360,7 @@ void EditorPanels::SectionLevel(EditorState& state) {
     if (ImGui::BeginPopup("##LevelLoadPopup")) {
         std::string levelsDir;
         if (editor) {
-            // We can get the levels directory from the editor's path
-            // For now use exe dir + levels/
-            wchar_t exePath[MAX_PATH];
-            GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-            std::wstring exeDir(exePath);
-            exeDir = exeDir.substr(0, exeDir.find_last_of(L"\\\\/") + 1);
-            char edBuf[MAX_PATH];
-            WideCharToMultiByte(CP_ACP, 0, exeDir.c_str(), -1, edBuf, MAX_PATH, nullptr, nullptr);
-            levelsDir = std::string(edBuf) + "levels/";
+            levelsDir = editor->GetLevelsDirectory();
         }
 
         auto files = LevelFile::ListLevels(levelsDir);
@@ -386,6 +378,27 @@ void EditorPanels::SectionLevel(EditorState& state) {
 
     ImGui::Spacing();
 
+    // Save As — type a name and save as new level file
+    if (editor) {
+        static char saveAsBuf[128] = {};
+        ImGui::SetNextItemWidth(120.0f);
+        ImGui::InputText("##saveAsName", saveAsBuf, sizeof(saveAsBuf));
+        if (saveAsBuf[0] != '\0') {
+            ImGui::SameLine();
+            if (ImGui::Button("Save As")) {
+                std::string newPath = editor->GetLevelsDirectory() + std::string(saveAsBuf) + ".wtlevel";
+                editor->SetCurrentLevelPath(newPath);
+                editor->SaveCurrentLevel(state);
+                saveAsBuf[0] = '\0';
+            }
+        } else {
+            ImGui::SameLine();
+            ImGui::TextDisabled("Save As");
+        }
+    }
+
+    ImGui::Spacing();
+
     // Toggle level editor window
     bool edOpen = editor ? editor->IsOpen() : false;
     if (ImGui::Checkbox("Level Editor Window (F7)", &edOpen)) {
@@ -394,6 +407,10 @@ void EditorPanels::SectionLevel(EditorState& state) {
 
     // Info
     ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+    if (editor && !editor->GetCurrentLevelPath().empty())
+        ImGui::Text("File: %s", LevelFile::GetLevelName(editor->GetCurrentLevelPath()).c_str());
+    else
+        ImGui::Text("File: (unsaved)");
     ImGui::Text("Entities: %d", state.scene.GetEntityCount());
     ImGui::PopStyleColor();
 
@@ -554,6 +571,14 @@ void EditorPanels::SectionEntities(EditorState& state) {
         ImGui::PopStyleColor();
         ImGui::Spacing();
 
+        // Material type combo
+        PropertyLabel("Material");
+        const char* matNames[] = { "Concrete", "Wood", "Metal", "Glass" };
+        int matIdx = static_cast<int>(e.materialType);
+        if (ImGui::Combo("##entmat", &matIdx, matNames, IM_ARRAYSIZE(matNames))) {
+            e.materialType = static_cast<MaterialType>(matIdx);
+        }
+
         PropertyLabel("Destructible");
         ImGui::Checkbox("##entdest", &e.destructible);
 
@@ -574,6 +599,27 @@ void EditorPanels::SectionEntities(EditorState& state) {
             ImGui::DragInt("##entdc", &e.debrisCount, 0.1f, 1, 50);
             PropertyLabel("Debris Scale");
             ImGui::DragFloat("##entds", &e.debrisScale, 0.01f, 0.05f, 2.0f, "%.2f");
+            PropertyLabel("Break Pieces");
+            ImGui::DragInt("##entbp", &e.breakPieceCount, 0.1f, 0, 8);
+
+            // Structural support
+            PropertyLabel("Supported By");
+            char supBuf[128] = {};
+            strncpy(supBuf, e.supportedBy.c_str(), sizeof(supBuf) - 1);
+            if (ImGui::InputText("##entsup", supBuf, sizeof(supBuf))) {
+                e.supportedBy = supBuf;
+            }
+
+            // Voxel chunk destruction
+            PropertyLabel("Voxel Destruct");
+            ImGui::Checkbox("##entvox", &e.voxelDestruction);
+            if (e.voxelDestruction) {
+                ImGui::SameLine();
+                PropertyLabel("Res");
+                if (ImGui::DragInt("##entvoxres", &e.voxelRes, 0.05f, 2, 8)) {
+                    e.ResetVoxelMask(); // Reset mask on resolution change
+                }
+            }
 
             // Health bar preview
             float frac = e.GetHealthFraction();
@@ -596,6 +642,10 @@ void EditorPanels::SectionEntities(EditorState& state) {
             if (ImGui::Button("Reset HP", ImVec2(80, 0))) {
                 e.health = e.maxHealth;
                 e.damageFlashTimer = 0.0f;
+                e.hitDecalCount = 0;
+                e.hitDecalNext = 0;
+                if (e.voxelDestruction)
+                    e.ResetVoxelMask();
             }
         }
     }

@@ -586,6 +586,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ShadowMap.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.h" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\LevelGenerator.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Util\Log.h" />

@@ -58,6 +58,7 @@ struct CollisionHit {
     XMFLOAT3 normal   = { 0.0f, 0.0f, 0.0f };  // Push-out direction
     float    depth    = 0.0f;                     // Penetration depth
     int      entityIndex = -1;                    // Which entity was hit (-1 = world)
+    int      voxelCellIndex = -1;                 // Which voxel cell was hit (-1 = not voxel)
 };
 
 // ---- Physics body type ----
@@ -69,7 +70,7 @@ enum class PhysicsBodyType : uint8_t {
 
 // ---- Physics body ----
 struct PhysicsBody {
-    AABB box;
+    AABB box;                    // Broad-phase AABB (inflated for rotated bodies)
     XMFLOAT3 velocity = { 0.0f, 0.0f, 0.0f };
     PhysicsBodyType type = PhysicsBodyType::Static;
     float mass       = 1.0f;
@@ -78,6 +79,13 @@ struct PhysicsBody {
     bool  onGround   = false;
     bool  enabled    = true;
     int   entityIndex = -1;      // Associated entity index (-1 = none)
+    int   voxelCellIndex = -1;   // Voxel cell index (-1 = not a voxel cell)
+
+    // ---- OBB data (for rotated static bodies) ----
+    bool     hasRotation = false;    // If true, use OBB for narrow-phase
+    XMFLOAT3 obbCenter   = { 0, 0, 0 };  // World-space center
+    XMFLOAT3 obbHalfExt  = { 0, 0, 0 };  // Local-space half-extents (pre-rotation)
+    XMFLOAT3X3 obbRotMat = {};            // 3x3 rotation matrix (local → world)
 };
 
 // ============================================================
@@ -141,6 +149,13 @@ private:
 
     // Compute minimum translation vector to resolve overlap
     static CollisionHit AABBResolve(const AABB& moving, const AABB& stationary);
+
+    // OBB vs AABB collision test (SAT-based, returns MTV)
+    static CollisionHit OBBvsAABB(const PhysicsBody& obbBody, const AABB& aabb);
+
+    // Ray vs OBB test
+    static bool RayOBB(const XMFLOAT3& origin, const XMFLOAT3& direction,
+                       const PhysicsBody& obbBody, float& tHit, XMFLOAT3& hitNormal);
 
     // AABB vs ground plane
     CollisionHit GroundTest(const AABB& box) const;

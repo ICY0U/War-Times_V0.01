@@ -178,6 +178,65 @@ bool Texture::LoadFromPNG(ID3D11Device* device, const std::wstring& filepath) {
     return ok;
 }
 
+bool Texture::CreateGridTexture(ID3D11Device* device, int texSize,
+                                float baseR, float baseG, float baseB,
+                                float lineR, float lineG, float lineB,
+                                int gridCells, int lineWidth) {
+    // Generate a dev-style grid texture with a checker pattern and grid lines
+    std::vector<uint8_t> pixels(texSize * texSize * 4);
+
+    int cellSize = texSize / gridCells;
+    if (cellSize < 1) cellSize = 1;
+
+    uint8_t bR = static_cast<uint8_t>(baseR * 255.0f);
+    uint8_t bG = static_cast<uint8_t>(baseG * 255.0f);
+    uint8_t bB = static_cast<uint8_t>(baseB * 255.0f);
+
+    // Slightly darker variant for checkerboard
+    uint8_t dR = static_cast<uint8_t>(baseR * 0.85f * 255.0f);
+    uint8_t dG = static_cast<uint8_t>(baseG * 0.85f * 255.0f);
+    uint8_t dB = static_cast<uint8_t>(baseB * 0.85f * 255.0f);
+
+    uint8_t lR = static_cast<uint8_t>(lineR * 255.0f);
+    uint8_t lG = static_cast<uint8_t>(lineG * 255.0f);
+    uint8_t lB = static_cast<uint8_t>(lineB * 255.0f);
+
+    for (int y = 0; y < texSize; y++) {
+        for (int x = 0; x < texSize; x++) {
+            int idx = (y * texSize + x) * 4;
+            int cellX = x / cellSize;
+            int cellY = y / cellSize;
+            int localX = x % cellSize;
+            int localY = y % cellSize;
+
+            bool isGridLine = (localX < lineWidth || localY < lineWidth);
+            // Thicker lines at center cross and outer border
+            bool isMajorLine = (x < lineWidth || y < lineWidth ||
+                                x >= texSize - lineWidth || y >= texSize - lineWidth);
+
+            if (isGridLine || isMajorLine) {
+                pixels[idx + 0] = lR;
+                pixels[idx + 1] = lG;
+                pixels[idx + 2] = lB;
+                pixels[idx + 3] = 255;
+            } else {
+                // Checkerboard pattern within cells
+                bool checker = ((cellX + cellY) % 2) == 0;
+                pixels[idx + 0] = checker ? bR : dR;
+                pixels[idx + 1] = checker ? bG : dG;
+                pixels[idx + 2] = checker ? bB : dB;
+                pixels[idx + 3] = 255;
+            }
+        }
+    }
+
+    bool ok = CreateFromData(device, pixels.data(), texSize, texSize);
+    if (ok) {
+        LOG_INFO("Texture: Created grid texture %dx%d (%d cells)", texSize, texSize, gridCells);
+    }
+    return ok;
+}
+
 void Texture::Bind(ID3D11DeviceContext* context, UINT slot) const {
     context->PSSetShaderResources(slot, 1, m_srv.GetAddressOf());
 }
