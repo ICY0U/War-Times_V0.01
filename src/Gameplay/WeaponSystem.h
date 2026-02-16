@@ -148,6 +148,7 @@ struct WeaponHitResult {
     int      voxelCellIndex = -1;     // Voxel cell hit (-1 = not voxel)
     float    distance     = 0.0f;
     bool     isHeadshot   = false;    // True if hit the head sphere of a ground agent
+    int      rotorIndex   = -1;      // Drone rotor hit (0-3, -1 = body)
 };
 
 // ============================================================

@@ -375,10 +375,21 @@ void WeaponSystem::Fire(Camera& camera, PhysicsWorld* physics, AISystem* aiSyste
             dmg *= 2.0f;  // Headshot = 2x damage
             LOG_INFO("HEADSHOT on '%s'!", agent.name.c_str());
         }
-        bool killed = agent.TakeDamage(dmg);
-        m_hitMarkerTimer = m_settings.hitMarkerDuration;
-        if (killed) {
-            LOG_INFO("Agent '%s' eliminated!", agent.name.c_str());
+
+        // Drone rotor damage — apply to specific rotor instead of body
+        if (agent.type == AIAgentType::Drone && m_lastHit.rotorIndex >= 0) {
+            bool destroyed = agent.TakeRotorDamage(m_lastHit.rotorIndex, dmg);
+            if (destroyed) {
+                LOG_INFO("Rotor %d destroyed on '%s'! (%d rotors remaining)",
+                         m_lastHit.rotorIndex, agent.name.c_str(), agent.AliveRotorCount());
+            }
+            m_hitMarkerTimer = m_settings.hitMarkerDuration;
+        } else {
+            bool killed = agent.TakeDamage(dmg);
+            m_hitMarkerTimer = m_settings.hitMarkerDuration;
+            if (killed) {
+                LOG_INFO("Agent '%s' eliminated!", agent.name.c_str());
+            }
         }
     }
 
@@ -432,6 +443,7 @@ WeaponHitResult WeaponSystem::DoRaycast(const XMFLOAT3& origin, const XMFLOAT3& 
             bool hitAgent = false;
             float hitT = closestDist;
             bool headshot = false;
+            int hitRotorIdx = -1;
 
             if (agent.type == AIAgentType::Ground) {
                 // Ground agent: torso AABB + head sphere
@@ -503,23 +515,67 @@ WeaponHitResult WeaponSystem::DoRaycast(const XMFLOAT3& origin, const XMFLOAT3& 
                     headshot = false; // Torso is closer, override headshot
                 }
             } else {
-                // Drone: sphere hitbox
-                float ocx = origin.x - agent.position.x;
-                float ocy = origin.y - agent.position.y;
-                float ocz = origin.z - agent.position.z;
+                // Drone: test 4 rotor spheres first, then body sphere
+                int hitRotor = -1;
+                float bestRotorT = hitT;
+
+                // Rotor hit test (4 small spheres at propeller tips)
                 float halfScale = bs * 0.5f;
-                float a = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
-                float b = 2.0f * (ocx * direction.x + ocy * direction.y + ocz * direction.z);
-                float c = ocx * ocx + ocy * ocy + ocz * ocz - halfScale * halfScale;
-                float disc = b * b - 4.0f * a * c;
-                if (disc >= 0.0f) {
-                    float sqrtDisc = sqrtf(disc);
-                    float t0 = (-b - sqrtDisc) / (2.0f * a);
-                    float t1 = (-b + sqrtDisc) / (2.0f * a);
-                    float tSphere = (t0 > 0.0f) ? t0 : t1;
-                    if (tSphere > 0.0f && tSphere < hitT) {
-                        hitT = tSphere;
-                        hitAgent = true;
+                float armLen = halfScale * 1.4f;
+                float propY  = agent.position.y + halfScale * 0.3f;
+                float rotorR = bs * 0.2f;  // Rotor hitbox radius
+                float yawRad = XMConvertToRadians(agent.yaw);
+
+                for (int p = 0; p < 4; p++) {
+                    if (!agent.rotorAlive[p]) continue;
+                    float angle = yawRad + (p * 1.5708f) + 0.7854f;
+                    float rpx = std::sin(angle) * armLen;
+                    float rpz = std::cos(angle) * armLen;
+                    float rcx = agent.position.x + rpx;
+                    float rcy = propY;
+                    float rcz = agent.position.z + rpz;
+
+                    float rocx = origin.x - rcx;
+                    float rocy = origin.y - rcy;
+                    float rocz = origin.z - rcz;
+                    float ra = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+                    float rb = 2.0f * (rocx * direction.x + rocy * direction.y + rocz * direction.z);
+                    float rc = rocx * rocx + rocy * rocy + rocz * rocz - rotorR * rotorR;
+                    float rdisc = rb * rb - 4.0f * ra * rc;
+                    if (rdisc >= 0.0f) {
+                        float sqrtD = sqrtf(rdisc);
+                        float rt0 = (-rb - sqrtD) / (2.0f * ra);
+                        float rt1 = (-rb + sqrtD) / (2.0f * ra);
+                        float rtS = (rt0 > 0.0f) ? rt0 : rt1;
+                        if (rtS > 0.0f && rtS < bestRotorT) {
+                            bestRotorT = rtS;
+                            hitRotor = p;
+                        }
+                    }
+                }
+
+                if (hitRotor >= 0) {
+                    hitT = bestRotorT;
+                    hitAgent = true;
+                    hitRotorIdx = hitRotor;
+                } else {
+                    // Body sphere hitbox (fallback)
+                    float ocx = origin.x - agent.position.x;
+                    float ocy = origin.y - agent.position.y;
+                    float ocz = origin.z - agent.position.z;
+                    float a = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+                    float b = 2.0f * (ocx * direction.x + ocy * direction.y + ocz * direction.z);
+                    float c = ocx * ocx + ocy * ocy + ocz * ocz - halfScale * halfScale;
+                    float disc = b * b - 4.0f * a * c;
+                    if (disc >= 0.0f) {
+                        float sqrtDisc = sqrtf(disc);
+                        float t0 = (-b - sqrtDisc) / (2.0f * a);
+                        float t1 = (-b + sqrtDisc) / (2.0f * a);
+                        float tSphere = (t0 > 0.0f) ? t0 : t1;
+                        if (tSphere > 0.0f && tSphere < hitT) {
+                            hitT = tSphere;
+                            hitAgent = true;
+                        }
                     }
                 }
             }
@@ -531,6 +587,7 @@ WeaponHitResult WeaponSystem::DoRaycast(const XMFLOAT3& origin, const XMFLOAT3& 
                 result.agentIndex = i;
                 result.entityIndex = -1;
                 result.isHeadshot = headshot;
+                result.rotorIndex = hitRotorIdx;
                 result.hitPosition = {
                     origin.x + direction.x * hitT,
                     origin.y + direction.y * hitT,

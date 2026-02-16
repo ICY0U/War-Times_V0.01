@@ -307,6 +307,9 @@ bool Application::InitGraphics() {
     // Create sphere mesh (for agents)
     if (!CreateSphereMesh()) return false;
 
+    // Create rotor mesh (for drone propellers)
+    if (!CreateRotorMesh()) return false;
+
     // Create ground plane (single large quad)
     if (!CreateGroundMesh()) return false;
 
@@ -469,6 +472,155 @@ bool Application::CreateSphereMesh() {
     }
 
     return m_sphereMesh.Create(m_renderer.GetDevice(), vertices, indices);
+}
+
+bool Application::CreateRotorMesh() {
+    // Propeller disc — 3 blades radiating from a small central hub
+    // Each blade is a thin flat wedge. Looks like a real propeller.
+    using V = VertexPosNormalColor;
+    std::vector<V> vertices;
+    std::vector<UINT> indices;
+
+    const float hubR    = 0.06f;   // Central hub radius
+    const float bladeR  = 0.5f;    // Blade tip radius
+    const float halfH   = 0.015f;  // Very thin
+    const int   blades  = 3;
+    const float bladeArc = 0.28f;  // Blade angular width (radians, ~16 degrees)
+    const int   radSteps = 6;      // Steps along blade length
+    const int   arcSteps = 3;      // Steps across blade width
+    XMFLOAT4 hubCol   = { 0.35f, 0.35f, 0.38f, 1.0f }; // Dark metal hub
+    XMFLOAT4 bladeCol = { 0.55f, 0.55f, 0.6f, 1.0f };  // Lighter metal blade
+
+    // Central hub disc (simple circle)
+    UINT hubCenter = static_cast<UINT>(vertices.size());
+    vertices.push_back({{ 0, halfH, 0 }, { 0, 1, 0 }, hubCol, { 0.5f, 0.5f }});
+    const int hubSegs = 12;
+    for (int i = 0; i <= hubSegs; i++) {
+        float a = 2.0f * XM_PI * static_cast<float>(i) / static_cast<float>(hubSegs);
+        vertices.push_back({{ hubR * cosf(a), halfH, hubR * sinf(a) }, { 0, 1, 0 }, hubCol, { 0.5f + 0.5f * cosf(a), 0.5f + 0.5f * sinf(a) }});
+    }
+    for (int i = 0; i < hubSegs; i++) {
+        indices.push_back(hubCenter);
+        indices.push_back(hubCenter + 1 + i);
+        indices.push_back(hubCenter + 1 + ((i + 1) % hubSegs));
+    }
+    // Hub bottom
+    UINT hubBotCenter = static_cast<UINT>(vertices.size());
+    vertices.push_back({{ 0, -halfH, 0 }, { 0, -1, 0 }, hubCol, { 0.5f, 0.5f }});
+    for (int i = 0; i <= hubSegs; i++) {
+        float a = 2.0f * XM_PI * static_cast<float>(i) / static_cast<float>(hubSegs);
+        vertices.push_back({{ hubR * cosf(a), -halfH, hubR * sinf(a) }, { 0, -1, 0 }, hubCol, { 0.5f + 0.5f * cosf(a), 0.5f + 0.5f * sinf(a) }});
+    }
+    for (int i = 0; i < hubSegs; i++) {
+        indices.push_back(hubBotCenter);
+        indices.push_back(hubBotCenter + 1 + ((i + 1) % hubSegs));
+        indices.push_back(hubBotCenter + 1 + i);
+    }
+
+    // 3 blades
+    for (int b = 0; b < blades; b++) {
+        float baseAngle = (2.0f * XM_PI * b) / static_cast<float>(blades);
+        UINT bladeStart = static_cast<UINT>(vertices.size());
+
+        // Generate blade grid vertices (top face)
+        for (int ri = 0; ri <= radSteps; ri++) {
+            float t = static_cast<float>(ri) / static_cast<float>(radSteps);
+            float r = hubR + (bladeR - hubR) * t;
+            // Blade tapers: wider at hub, narrower at tip
+            float arcW = bladeArc * (1.0f - t * 0.5f);
+            for (int ai = 0; ai <= arcSteps; ai++) {
+                float at = static_cast<float>(ai) / static_cast<float>(arcSteps);
+                float a = baseAngle + (at - 0.5f) * arcW;
+                // Color gradient: darker at hub, lighter at tip
+                XMFLOAT4 c = {
+                    bladeCol.x * (0.7f + 0.3f * t),
+                    bladeCol.y * (0.7f + 0.3f * t),
+                    bladeCol.z * (0.7f + 0.3f * t),
+                    1.0f };
+                vertices.push_back({{ r * cosf(a), halfH, r * sinf(a) }, { 0, 1, 0 }, c, { t, at }});
+            }
+        }
+        // Blade top face indices
+        for (int ri = 0; ri < radSteps; ri++) {
+            for (int ai = 0; ai < arcSteps; ai++) {
+                UINT tl = bladeStart + ri * (arcSteps + 1) + ai;
+                UINT tr = tl + 1;
+                UINT bl = tl + (arcSteps + 1);
+                UINT br = bl + 1;
+                indices.push_back(tl); indices.push_back(bl); indices.push_back(br);
+                indices.push_back(tl); indices.push_back(br); indices.push_back(tr);
+            }
+        }
+
+        // Bottom face (same grid, flipped normal and winding)
+        UINT bladeBotStart = static_cast<UINT>(vertices.size());
+        for (int ri = 0; ri <= radSteps; ri++) {
+            float t = static_cast<float>(ri) / static_cast<float>(radSteps);
+            float r = hubR + (bladeR - hubR) * t;
+            float arcW = bladeArc * (1.0f - t * 0.5f);
+            for (int ai = 0; ai <= arcSteps; ai++) {
+                float at = static_cast<float>(ai) / static_cast<float>(arcSteps);
+                float a = baseAngle + (at - 0.5f) * arcW;
+                XMFLOAT4 c = {
+                    bladeCol.x * (0.7f + 0.3f * t),
+                    bladeCol.y * (0.7f + 0.3f * t),
+                    bladeCol.z * (0.7f + 0.3f * t),
+                    1.0f };
+                vertices.push_back({{ r * cosf(a), -halfH, r * sinf(a) }, { 0, -1, 0 }, c, { t, at }});
+            }
+        }
+        for (int ri = 0; ri < radSteps; ri++) {
+            for (int ai = 0; ai < arcSteps; ai++) {
+                UINT tl = bladeBotStart + ri * (arcSteps + 1) + ai;
+                UINT tr = tl + 1;
+                UINT bl = tl + (arcSteps + 1);
+                UINT br = bl + 1;
+                indices.push_back(tl); indices.push_back(br); indices.push_back(bl);
+                indices.push_back(tl); indices.push_back(tr); indices.push_back(br);
+            }
+        }
+    }
+
+    // ---- Guard ring / shroud around the blade tips ----
+    const float ringR     = bladeR + 0.03f; // Slightly outside blade tips
+    const float ringTube  = 0.025f;         // Tube thickness of the ring
+    const int   ringSegs  = 24;             // Segments around the ring circle
+    const int   tubeSegs  = 6;              // Segments around the tube cross-section
+    XMFLOAT4 ringCol = { 0.3f, 0.3f, 0.33f, 1.0f }; // Dark metal frame
+
+    for (int i = 0; i <= ringSegs; i++) {
+        float theta = 2.0f * XM_PI * static_cast<float>(i) / static_cast<float>(ringSegs);
+        float ct = cosf(theta);
+        float st = sinf(theta);
+        for (int j = 0; j <= tubeSegs; j++) {
+            float phi = 2.0f * XM_PI * static_cast<float>(j) / static_cast<float>(tubeSegs);
+            float cp = cosf(phi);
+            float sp = sinf(phi);
+
+            float x = (ringR + ringTube * cp) * ct;
+            float y = ringTube * sp;
+            float z = (ringR + ringTube * cp) * st;
+            // Normal points outward from tube center
+            float nx = cp * ct;
+            float ny = sp;
+            float nz = cp * st;
+
+            float u = static_cast<float>(i) / static_cast<float>(ringSegs);
+            float v = static_cast<float>(j) / static_cast<float>(tubeSegs);
+            vertices.push_back({{ x, y, z }, { nx, ny, nz }, ringCol, { u, v }});
+        }
+    }
+    UINT ringBase = static_cast<UINT>(vertices.size()) - (ringSegs + 1) * (tubeSegs + 1);
+    for (int i = 0; i < ringSegs; i++) {
+        for (int j = 0; j < tubeSegs; j++) {
+            UINT cur  = ringBase + i * (tubeSegs + 1) + j;
+            UINT next = ringBase + (i + 1) * (tubeSegs + 1) + j;
+            indices.push_back(cur);     indices.push_back(next);     indices.push_back(next + 1);
+            indices.push_back(cur);     indices.push_back(next + 1); indices.push_back(cur + 1);
+        }
+    }
+
+    return m_rotorMesh.Create(m_renderer.GetDevice(), vertices, indices);
 }
 
 bool Application::CreateGroundMesh() {
@@ -1170,6 +1322,7 @@ void Application::Update(float dt) {
             agent.settings.bodyColor[0] = 0.2f;
             agent.settings.bodyColor[1] = 0.7f;
             agent.settings.bodyColor[2] = 0.9f;
+            agent.InitRotors();  // Initialize rotor health from settings
         }
         m_editorState.aiSelectedAgent = idx;
     }
@@ -1182,11 +1335,82 @@ void Application::Update(float dt) {
     m_aiSystem.Update(dt, m_navGrid, playerPos,
                        m_editorState.physicsCollisionEnabled ? &m_physicsWorld : nullptr);
 
+    // ---- Drone crash / rotor failure logic ----
+    for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
+        auto& agent = m_aiSystem.GetAgent(i);
+        if (!agent.alive || agent.droneExploded) continue;
+        if (agent.type != AIAgentType::Drone) continue;
+
+        // Gradually slow damaged rotors (visual: spin speed decays toward health ratio)
+        for (int r = 0; r < 4; r++) {
+            if (agent.rotorAlive[r]) {
+                float healthPct = agent.rotorHealth[r] / agent.settings.droneRotorHealth;
+                float targetSpeed = 0.3f + 0.7f * healthPct; // Damaged rotors spin slower
+                agent.rotorSpinSpeed[r] += (targetSpeed - agent.rotorSpinSpeed[r]) * 3.0f * dt;
+            }
+        }
+
+        // Check for crash condition: 2 rotors dead on same side
+        if (!agent.droneCrashing && agent.ShouldCrash()) {
+            agent.droneCrashing = true;
+            agent.droneCrashTimer = 0.0f;
+            agent.droneVerticalVel = 0.0f;
+            LOG_INFO("Drone '%s' lost critical rotors — crashing!", agent.name.c_str());
+        }
+
+        // Update crashing drone
+        if (agent.droneCrashing) {
+            agent.droneCrashTimer += dt;
+
+            // Gravity pull — accelerate downward
+            agent.droneVerticalVel -= 15.0f * dt;
+            agent.position.y += agent.droneVerticalVel * dt;
+
+            // Spin out — rapidly increase roll and pitch
+            agent.droneRoll  += 180.0f * dt;  // 180 deg/s spin
+            agent.dronePitch += 60.0f * dt;
+
+            // Slight horizontal drift
+            float yawRad = XMConvertToRadians(agent.yaw);
+            agent.position.x += std::sin(yawRad) * 1.5f * dt;
+            agent.position.z += std::cos(yawRad) * 1.5f * dt;
+
+            // Trail smoke while falling
+            if (agent.droneCrashTimer > 0.1f) {
+                agent.droneDownwashTimer -= dt;
+                if (agent.droneDownwashTimer <= 0.0f) {
+                    agent.droneDownwashTimer = 0.05f;
+                    // Smoke trail particle — small gray puffs
+                    XMFLOAT3 smokeScale = { 0.15f, 0.15f, 0.15f };
+                    float smokeColor[4] = { 0.35f, 0.35f, 0.38f, 0.5f };
+                    m_particles.SpawnExplosion(agent.position, smokeScale, smokeColor, 1, 0.25f);
+                }
+            }
+
+            // Check if hit the ground
+            float groundY = m_editorState.charGroundY;
+            if (agent.position.y <= groundY + 0.2f) {
+                agent.position.y = groundY + 0.1f;
+                agent.droneExploded = true;
+                agent.alive = false;
+                agent.active = false;
+
+                // Explosion — smaller with gray metal debris
+                float bs = agent.settings.bodyScale;
+                XMFLOAT3 explScale = { bs * 0.4f, bs * 0.4f, bs * 0.4f };
+                float explColor[4] = { 0.45f, 0.45f, 0.5f, 1.0f }; // Gray metal
+                m_particles.SpawnExplosion(agent.position, explScale, explColor, 10, 0.4f);
+                LOG_INFO("Drone '%s' crashed and exploded!", agent.name.c_str());
+            }
+        }
+    }
+
     // ---- Drone downwash particle effects ----
     for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
         auto& agent = m_aiSystem.GetAgent(i);
         if (!agent.active || !agent.alive) continue;
         if (agent.type != AIAgentType::Drone) continue;
+        if (agent.droneCrashing) continue; // No downwash while crashing
 
         // Emit downwash on timer
         agent.droneDownwashTimer -= dt;
@@ -1476,6 +1700,28 @@ void Application::Render() {
                 m_cbPerObject.Update(ctx, objData);
                 m_cbPerObject.BindVS(ctx, 1);
                 m_sphereMesh.Draw(ctx);
+
+                // Shadow: rotor meshes
+                float yawRad = XMConvertToRadians(agent.yaw);
+                float armLen = bs * 0.5f * 1.4f;
+                float propY  = agent.position.y + bs * 0.5f * 0.3f;
+                float rotorScale = bs * 0.4f;
+                for (int p = 0; p < 4; p++) {
+                    if (!agent.rotorAlive[p]) continue;
+                    float angle = yawRad + (p * 1.5708f) + 0.7854f;
+                    float px = std::sin(angle) * armLen;
+                    float pz = std::cos(angle) * armLen;
+                    float discSpin = agent.droneBobPhase * 15.0f * agent.rotorSpinSpeed[p];
+                    XMMATRIX rScale = XMMatrixScaling(rotorScale, rotorScale, rotorScale);
+                    XMMATRIX rSpin  = XMMatrixRotationY(discSpin);
+                    XMMATRIX rTrans = XMMatrixTranslation(
+                        agent.position.x + px, propY, agent.position.z + pz);
+                    XMMATRIX rotorWorld = rScale * rSpin * rTrans;
+                    XMStoreFloat4x4(&objData.World, XMMatrixTranspose(rotorWorld));
+                    m_cbPerObject.Update(ctx, objData);
+                    m_cbPerObject.BindVS(ctx, 1);
+                    m_rotorMesh.Draw(ctx);
+                }
             } else {
                 // Ground — torso cube + head sphere
                 float bodyW = bs * 0.7f;
@@ -1875,6 +2121,51 @@ void Application::Render() {
                 m_cbPerObject.BindBoth(ctx, 1);
                 m_sphereMesh.Draw(ctx);
                 m_renderer.TrackDrawCall(m_sphereMesh.GetIndexCount());
+
+                // ---- Drone: 4 rotor meshes ----
+                float yawRad = XMConvertToRadians(agent.yaw);
+                float armLen = bs * 0.5f * 1.4f;  // Same as debug propeller arm length
+                float propY  = agent.position.y + bs * 0.5f * 0.3f;
+                float rotorScale = bs * 0.4f;     // Rotor disc size relative to body
+                float pitchRad = XMConvertToRadians(agent.dronePitch);
+                float rollRad  = XMConvertToRadians(agent.droneRoll);
+
+                for (int p = 0; p < 4; p++) {
+                    if (!agent.rotorAlive[p]) continue; // Don't render destroyed rotors
+
+                    // Fixed rotor position (no spin in position — rotors stay in place)
+                    float angle = yawRad + (p * 1.5708f) + 0.7854f;
+                    float px = std::sin(angle) * armLen;
+                    float pz = std::cos(angle) * armLen;
+                    // Apply pitch/roll tilt to rotor position
+                    float tipY = propY - px * std::sin(pitchRad) + pz * std::sin(rollRad);
+
+                    // Disc spins in place (visual only)
+                    float discSpin = agent.droneBobPhase * 15.0f * agent.rotorSpinSpeed[p];
+                    XMMATRIX rScale = XMMatrixScaling(rotorScale, rotorScale, rotorScale);
+                    XMMATRIX rSpin  = XMMatrixRotationY(discSpin);
+                    XMMATRIX rTilt  = XMMatrixRotationRollPitchYaw(pitchRad, 0.0f, rollRad);
+                    XMMATRIX rTrans = XMMatrixTranslation(
+                        agent.position.x + px * std::cos(pitchRad),
+                        tipY,
+                        agent.position.z + pz * std::cos(rollRad));
+                    XMMATRIX rotorWorld = rScale * rSpin * rTilt * rTrans;
+
+                    // Darken damaged rotors
+                    XMFLOAT4 rotorColor = { 0.5f, 0.5f, 0.55f, 1.0f };
+                    float healthPct = agent.rotorHealth[p] / agent.settings.droneRotorHealth;
+                    if (healthPct < 0.5f) {
+                        rotorColor = { 0.8f, 0.3f, 0.1f, 1.0f }; // Orange = damaged
+                    }
+
+                    XMStoreFloat4x4(&agentObj.World, XMMatrixTranspose(rotorWorld));
+                    XMStoreFloat4x4(&agentObj.WorldInvTranspose, XMMatrixInverse(nullptr, rotorWorld));
+                    agentObj.ObjectColor = rotorColor;
+                    m_cbPerObject.Update(ctx, agentObj);
+                    m_cbPerObject.BindBoth(ctx, 1);
+                    m_rotorMesh.Draw(ctx);
+                    m_renderer.TrackDrawCall(m_rotorMesh.GetIndexCount());
+                }
             } else {
                 // ---- Ground agent: body (tall cube) + sphere head ----
                 float bodyW = bs * 0.7f;   // Narrower than tall
@@ -2238,6 +2529,7 @@ void Application::Shutdown() {
     m_shadowMap.Shutdown();
     m_defaultWhite.Release();
     m_groundMesh.Release();
+    m_rotorMesh.Release();
     m_sphereMesh.Release();
     m_cubeMesh.Release();
     m_renderer.Shutdown();

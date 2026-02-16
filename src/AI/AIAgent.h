@@ -147,6 +147,7 @@ struct AIAgentSettings {
     float droneMinAltitude    = 1.0f;    // Minimum flight altitude (above ground)
     float droneMaxAltitude    = 8.0f;    // Maximum flight altitude
     float droneDownwashRate   = 0.1f;    // Seconds between downwash particle bursts
+    float droneRotorHealth    = 50.0f;   // Hit points per rotor
 };
 
 // ---- AI Agent — NPC that navigates the grid ----
@@ -214,6 +215,17 @@ struct AIAgent {
     float droneDownwashTimer = 0.0f;    // Timer for downwash particle emission
     float droneSpeedCurrent = 0.0f;     // Smoothed current horizontal speed (for tilt)
 
+    // Per-rotor state (4 rotors: 0=front-left, 1=front-right, 2=back-right, 3=back-left)
+    // "Left" rotors = 0, 3   "Right" rotors = 1, 2
+    float rotorHealth[4]    = { 50.0f, 50.0f, 50.0f, 50.0f };
+    bool  rotorAlive[4]     = { true, true, true, true };
+    float rotorSpinSpeed[4] = { 1.0f, 1.0f, 1.0f, 1.0f }; // 0 = stopped, 1 = full speed
+
+    // Crash state
+    bool  droneCrashing     = false;    // Drone is falling after rotor failure
+    bool  droneExploded     = false;    // Drone has hit ground and exploded
+    float droneCrashTimer   = 0.0f;     // Time since crash started (for spin-out anim)
+
     bool active  = true;
     bool visible = true;
 
@@ -239,6 +251,49 @@ struct AIAgent {
             return true;
         }
         return false;
+    }
+
+    // Apply damage to a specific rotor (0-3). Returns true if rotor was destroyed.
+    bool TakeRotorDamage(int rotorIdx, float amount) {
+        if (rotorIdx < 0 || rotorIdx > 3) return false;
+        if (!rotorAlive[rotorIdx]) return false;
+        rotorHealth[rotorIdx] -= amount;
+        damageFlashTimer = 0.15f;
+        wasRecentlyShot = true;
+        recentlyShotTimer = 1.0f;
+        if (rotorHealth[rotorIdx] <= 0.0f) {
+            rotorHealth[rotorIdx] = 0.0f;
+            rotorAlive[rotorIdx] = false;
+            rotorSpinSpeed[rotorIdx] = 0.0f;
+            return true;
+        }
+        return false;
+    }
+
+    // Count alive rotors
+    int AliveRotorCount() const {
+        int c = 0;
+        for (int i = 0; i < 4; i++) if (rotorAlive[i]) c++;
+        return c;
+    }
+
+    // Check if 2 rotors on same side are dead (left=0,3  right=1,2)
+    bool ShouldCrash() const {
+        bool leftDead  = !rotorAlive[0] && !rotorAlive[3];
+        bool rightDead = !rotorAlive[1] && !rotorAlive[2];
+        return leftDead || rightDead;
+    }
+
+    // Initialize rotor health from settings
+    void InitRotors() {
+        for (int i = 0; i < 4; i++) {
+            rotorHealth[i] = settings.droneRotorHealth;
+            rotorAlive[i] = true;
+            rotorSpinSpeed[i] = 1.0f;
+        }
+        droneCrashing = false;
+        droneExploded = false;
+        droneCrashTimer = 0.0f;
     }
 };
 

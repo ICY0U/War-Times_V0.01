@@ -467,6 +467,9 @@ void AISystem::UpdateAgent(float dt, AIAgent& agent, const NavGrid& navGrid,
 
 void AISystem::UpdateDrone(float dt, AIAgent& agent, const NavGrid& navGrid,
                             const XMFLOAT3& playerPos, PhysicsWorld* physics) {
+    // Skip update if drone has crashed
+    if (agent.droneCrashing || agent.droneExploded) return;
+
     float speed = agent.settings.moveSpeed;
     const float groundY = navGrid.GetGridY();
 
@@ -551,15 +554,38 @@ void AISystem::UpdateDrone(float dt, AIAgent& agent, const NavGrid& navGrid,
     }
 
     // ---- Smooth altitude tracking ----
-    float desiredY = groundY + agent.droneTargetAlt + bobOffset;
+    // Lift fraction from rotors (4 alive = 1.0, 3 = 0.75, etc.)
+    int aliveRotors = agent.AliveRotorCount();
+    float liftFrac = static_cast<float>(aliveRotors) / 4.0f;
+
+    // Reduce effective max altitude based on rotor damage
+    float effectiveMaxAlt = agent.settings.droneMaxAltitude * liftFrac;
+    float effectiveTargetAlt = (std::min)(agent.droneTargetAlt, effectiveMaxAlt);
+
+    float desiredY = groundY + effectiveTargetAlt + bobOffset;
     float altError = desiredY - agent.position.y;
+
+    // Spring strength weakens with fewer rotors
+    float springK = 8.0f * liftFrac;
+    float damping = 3.0f;
+
+    // With fewer rotors, add gravity-like downward pull
+    float gravityPull = (1.0f - liftFrac) * -12.0f * dt;
+
     // Smooth vertical velocity (spring-damper)
-    agent.droneVerticalVel += altError * 8.0f * dt;  // Spring
-    agent.droneVerticalVel *= (1.0f - 3.0f * dt);    // Damping
+    agent.droneVerticalVel += altError * springK * dt + gravityPull;  // Spring + gravity
+    agent.droneVerticalVel *= (1.0f - damping * dt);    // Damping
+
+    // Increased bob with damage (unstable hover)
+    if (aliveRotors < 4 && aliveRotors > 0) {
+        float wobble = std::sin(agent.droneBobPhase * 5.0f) * (1.0f - liftFrac) * 2.0f;
+        agent.droneVerticalVel += wobble * dt;
+    }
+
     agent.position.y += agent.droneVerticalVel * dt;
     // Clamp altitude
     float minY = groundY + agent.settings.droneMinAltitude;
-    float maxY = groundY + agent.settings.droneMaxAltitude + agent.settings.droneBobAmplitude;
+    float maxY = groundY + effectiveMaxAlt + agent.settings.droneBobAmplitude;
     if (agent.position.y < minY) { agent.position.y = minY; agent.droneVerticalVel = 0.0f; }
     if (agent.position.y > maxY) { agent.position.y = maxY; agent.droneVerticalVel = 0.0f; }
 
@@ -791,6 +817,16 @@ void AISystem::UpdateDrone(float dt, AIAgent& agent, const NavGrid& navGrid,
     float targetPitch = (agent.droneSpeedCurrent / (std::max)(agent.settings.droneChaseSpeed, 0.1f))
                         * agent.settings.droneMaxPitch;
     targetPitch = (std::min)(targetPitch, agent.settings.droneMaxPitch);
+
+    // Asymmetric rotor damage adds forced pitch (front vs back rotors)
+    // Front rotors = 0, 1   Back rotors = 2, 3
+    {
+        float frontLift = (agent.rotorAlive[0] ? 1.0f : 0.0f) + (agent.rotorAlive[1] ? 1.0f : 0.0f);
+        float backLift  = (agent.rotorAlive[2] ? 1.0f : 0.0f) + (agent.rotorAlive[3] ? 1.0f : 0.0f);
+        float pitchImbalance = (frontLift - backLift) * 15.0f; // Degrees of forced tilt
+        targetPitch += pitchImbalance;
+    }
+
     agent.dronePitch += (targetPitch - agent.dronePitch) * 4.0f * dt;
 
     // Roll — bank into turns (based on yaw rate)
@@ -802,7 +838,15 @@ void AISystem::UpdateDrone(float dt, AIAgent& agent, const NavGrid& navGrid,
         while (angleDiff < -3.14159f) angleDiff += 6.28318f;
         float targetRoll = angleDiff * (agent.droneSpeedCurrent / (std::max)(speed, 0.1f))
                            * agent.settings.droneMaxRoll;
-        targetRoll = (std::max)(-agent.settings.droneMaxRoll, (std::min)(targetRoll, agent.settings.droneMaxRoll));
+
+        // Asymmetric rotor damage adds forced roll (left vs right rotors)
+        // Left rotors = 0, 3   Right rotors = 1, 2
+        float leftLift  = (agent.rotorAlive[0] ? 1.0f : 0.0f) + (agent.rotorAlive[3] ? 1.0f : 0.0f);
+        float rightLift = (agent.rotorAlive[1] ? 1.0f : 0.0f) + (agent.rotorAlive[2] ? 1.0f : 0.0f);
+        float rollImbalance = (rightLift - leftLift) * 20.0f; // Degrees of forced bank
+        targetRoll += rollImbalance;
+
+        targetRoll = (std::max)(-60.0f, (std::min)(targetRoll, 60.0f)); // Allow wider roll when damaged
         agent.droneRoll += (targetRoll - agent.droneRoll) * 4.0f * dt;
     }
 

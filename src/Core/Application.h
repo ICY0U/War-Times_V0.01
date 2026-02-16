@@ -60,6 +60,7 @@ private:
     bool InitGraphics();
     bool CreateCubeMesh();
     bool CreateSphereMesh();
+    bool CreateRotorMesh();
     bool CreateGroundMesh();
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -89,6 +90,7 @@ private:
     Shader      m_groundShader;
     Mesh        m_cubeMesh;
     Mesh        m_sphereMesh;
+    Mesh        m_rotorMesh;
     Mesh        m_groundMesh;
     ConstantBuffer<CBPerFrame>  m_cbPerFrame;
     ConstantBuffer<CBPerObject> m_cbPerObject;
