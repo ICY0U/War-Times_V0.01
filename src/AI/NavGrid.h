@@ -47,9 +47,18 @@ public:
     // allowDiagonal: if true, 8-connected; if false, 4-connected
     std::vector<NavCoord> FindPath(NavCoord start, NavCoord goal, bool allowDiagonal = true) const;
 
-    // Convenience: world-space path
+    // Convenience: world-space path (with optional smoothing)
     std::vector<XMFLOAT3> FindPathWorld(const XMFLOAT3& startPos, const XMFLOAT3& goalPos,
                                          bool allowDiagonal = true) const;
+
+    // ---- Line of sight on the grid (Bresenham) ----
+    // Returns true if there is a clear walkable line between two grid cells
+    bool HasGridLOS(NavCoord from, NavCoord to) const;
+    bool HasGridLOS(const XMFLOAT3& fromWorld, const XMFLOAT3& toWorld) const;
+
+    // ---- Path smoothing ----
+    // Remove unnecessary intermediate waypoints where direct grid LOS exists
+    std::vector<NavCoord> SmoothPath(const std::vector<NavCoord>& path) const;
 
     // ---- Obstacle placement ----
     // Mark cells overlapping an axis-aligned box as blocked

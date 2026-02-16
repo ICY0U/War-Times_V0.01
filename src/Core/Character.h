@@ -1,6 +1,7 @@
 #pragma once
 
 #include <DirectXMath.h>
+#include <algorithm>
 #include "AnimStateMachine.h"
 
 namespace WT {
@@ -32,6 +33,12 @@ struct CharacterSettings {
     bool  cameraTiltEnabled = true;
     float cameraTiltAmount  = 0.4f;  // Max tilt angle in degrees
     float cameraTiltSpeed   = 6.0f;  // Lerp speed
+
+    // Peek/Lean
+    bool  leanEnabled      = true;
+    float leanAngle        = 5.0f;   // Max lean roll in degrees
+    float leanOffset       = 0.6f;   // Max horizontal camera offset in units
+    float leanSpeed        = 8.0f;   // Lerp speed
 
     // Head bob
     bool  headBobEnabled = true;
@@ -71,6 +78,15 @@ public:
     XMFLOAT3 GetPosition() const      { return m_position; }       // Feet position
     XMFLOAT3 GetEyePosition() const;                               // Camera position
     XMFLOAT3 GetVelocity() const      { return m_velocity; }
+
+    // Health
+    float GetHealth() const            { return m_health; }
+    float GetMaxHealth() const         { return m_maxHealth; }
+    bool  IsAlive() const              { return m_health > 0.0f; }
+    void  TakeDamage(float amount);
+    void  Heal(float amount);
+    void  SetMaxHealth(float hp)       { m_maxHealth = hp; m_health = (std::min)(m_health, hp); }
+    float GetDamageFlash() const       { return m_damageFlash; }
     float    GetYaw() const           { return m_yaw; }
     bool     IsGrounded() const       { return m_grounded; }
     bool     IsMoving() const         { return m_moving; }
@@ -86,6 +102,11 @@ public:
 
     // Head bob offset (applied to camera)
     XMFLOAT3 GetHeadBobOffset() const { return m_headBobOffset; }
+
+    // Peek/Lean
+    float    GetLeanAmount() const     { return m_leanAmount; }
+    float    GetLeanRoll() const;       // Roll angle in degrees
+    XMFLOAT3 GetLeanOffset() const;     // Horizontal camera offset
 
     // Body part transforms for rendering
     struct BodyPart {
@@ -111,6 +132,7 @@ private:
     void UpdateHeadBob(float dt, const CharacterSettings& settings);
     void UpdateCrouch(float dt, Input& input, const CharacterSettings& settings);
     void UpdateCameraTilt(float dt, Input& input, const CharacterSettings& settings);
+    void UpdateLean(float dt, Input& input, const CharacterSettings& settings, bool editorWantsKeyboard);
     void SetupAnimStateMachine();
 
     // Animation state machine
@@ -129,6 +151,10 @@ private:
     float    m_cameraTilt  = 0.0f;      // Current roll angle in degrees
     float    m_strafeDir   = 0.0f;      // -1 left, 0 none, +1 right
 
+    // Peek/Lean state
+    float    m_leanAmount  = 0.0f;      // -1 = left, 0 = none, +1 = right
+    float    m_leanTarget  = 0.0f;
+
     // Animation
     CharAnimState m_animState = CharAnimState::Idle;
     float    m_animTimer   = 0.0f;       // General anim timer
@@ -141,6 +167,11 @@ private:
 
     // Eye height (for smooth transitions)
     float    m_eyeHeight   = 1.6f;
+
+    // Health
+    float    m_health      = 100.0f;
+    float    m_maxHealth   = 100.0f;
+    float    m_damageFlash = 0.0f;    // Screen flash on taking damage
 };
 
 } // namespace WT

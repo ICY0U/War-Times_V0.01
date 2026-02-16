@@ -233,6 +233,145 @@ public:
         SpawnFireEmbers(center, entityScale, debrisCount);
     }
 
+    // Spawn downwash / thruster effect beneath a drone
+    // Creates spiral helix particles spinning down from propellers
+    void SpawnDroneDownwash(const XMFLOAT3& dronePos, float bodyScale, float groundY,
+                            float altitude, float speed, float bobPhase) {
+        float heightAboveGround = altitude;
+        if (heightAboveGround > 6.0f) return;
+
+        float intensity = 1.0f - (heightAboveGround / 6.0f);
+        intensity = (std::max)(0.0f, intensity);
+
+        // ---- Tiny wispy spiral particles from each propeller ----
+        float armLen = bodyScale * 0.7f;
+        for (int prop = 0; prop < 4; prop++) {
+            float propAngle = (prop * 1.5708f) + 0.7854f;
+            float propX = dronePos.x + std::sin(propAngle) * armLen;
+            float propZ = dronePos.z + std::cos(propAngle) * armLen;
+            float propY = dronePos.y;
+
+            // 3-5 wisp particles per propeller
+            int spiralCount = 3 + static_cast<int>(intensity * 2.0f);
+            for (int i = 0; i < spiralCount; i++) {
+                Particle p;
+                p.type = Particle::Type::Dust;
+
+                float t = RandRange(0.0f, 1.0f);
+                float spiralAngle = bobPhase * 8.0f + prop * 1.5708f + t * 18.85f; // ~3 tight turns
+                float spiralR = 0.08f + t * 0.2f;  // Tighter spiral
+                float startY = propY - t * heightAboveGround * 0.7f;
+
+                p.position = {
+                    propX + std::cos(spiralAngle) * spiralR,
+                    startY,
+                    propZ + std::sin(spiralAngle) * spiralR
+                };
+
+                // Tangent velocity (swirling) + gentle downward drift
+                float velAngle = spiralAngle + 1.5708f;
+                float tangentSpeed = RandRange(0.5f, 1.2f) * intensity;
+                float downSpeed = RandRange(0.8f, 2.0f);
+                p.velocity = {
+                    std::cos(velAngle) * tangentSpeed + (p.position.x - propX) * 0.3f,
+                    -downSpeed,
+                    std::sin(velAngle) * tangentSpeed + (p.position.z - propZ) * 0.3f
+                };
+
+                // Very small elongated wisps — wind streaks
+                float w = RandRange(0.008f, 0.02f);
+                float h = w * RandRange(2.0f, 4.0f);
+                p.scale = { w, h, w };
+
+                // White rotor wash wisps
+                p.color[0] = 0.9f + RandRange(0.0f, 0.1f);
+                p.color[1] = 0.9f + RandRange(0.0f, 0.1f);
+                p.color[2] = 0.92f + RandRange(0.0f, 0.08f);
+                p.color[3] = 0.18f * intensity;
+
+                p.maxLifetime = RandRange(0.15f, 0.4f);
+                p.gravity = -0.05f;
+                p.groundY = groundY;
+                p.alive = true;
+                m_particles.push_back(p);
+            }
+        }
+
+        // Ground dust kicked up by downwash
+        int groundCount = static_cast<int>(3.0f + intensity * 5.0f);
+        for (int i = 0; i < groundCount; i++) {
+            Particle p;
+            p.type = Particle::Type::Dust;
+
+            // Spawn at ground beneath drone with radial spread
+            float spread = bodyScale * 1.5f * (1.0f + heightAboveGround * 0.2f);
+            float angle = RandRange(0.0f, 6.283f);
+            float dist = RandRange(0.2f, spread);
+            p.position = {
+                dronePos.x + std::cos(angle) * dist,
+                groundY + RandRange(0.02f, 0.15f),
+                dronePos.z + std::sin(angle) * dist
+            };
+
+            // Kick outward + upward — dust being blown away
+            float outSpeed = RandRange(0.8f, 2.5f) * intensity;
+            p.velocity.x = std::cos(angle) * outSpeed;
+            p.velocity.z = std::sin(angle) * outSpeed;
+            p.velocity.y = RandRange(0.3f, 1.2f) * intensity;  // Kicked upward
+
+            // Earthy dust particles — varied size
+            float s = RandRange(0.02f, 0.06f) * (0.8f + intensity * 0.4f);
+            p.scale = { s, s * 0.7f, s };
+
+            // Mix of brown dust and white wisps
+            if (RandRange(0.0f, 1.0f) > 0.35f) {
+                // Brown/tan dust
+                float brownMix = RandRange(0.0f, 1.0f);
+                p.color[0] = 0.55f + brownMix * 0.15f;
+                p.color[1] = 0.45f + brownMix * 0.1f;
+                p.color[2] = 0.3f + brownMix * 0.05f;
+            } else {
+                // White dust wisps
+                p.color[0] = 0.88f + RandRange(0.0f, 0.12f);
+                p.color[1] = 0.88f + RandRange(0.0f, 0.12f);
+                p.color[2] = 0.9f + RandRange(0.0f, 0.1f);
+            }
+            p.color[3] = (0.2f + RandRange(0.0f, 0.15f)) * intensity;
+
+            p.maxLifetime = RandRange(0.4f, 1.0f);
+            p.gravity = -0.3f;  // Rises (blown upward by air)
+            p.groundY = groundY;
+            p.alive = true;
+            m_particles.push_back(p);
+        }
+
+        // Thin streaks when moving fast
+        if (speed > 1.5f) {
+            int jetCount = static_cast<int>(speed * 0.4f);
+            for (int i = 0; i < jetCount && i < 3; i++) {
+                Particle p;
+                p.type = Particle::Type::Spark;
+                p.position = {
+                    dronePos.x + RandRange(-bodyScale * 0.5f, bodyScale * 0.5f),
+                    dronePos.y - bodyScale * 0.3f,
+                    dronePos.z + RandRange(-bodyScale * 0.5f, bodyScale * 0.5f)
+                };
+                p.velocity = {
+                    RandRange(-0.3f, 0.3f),
+                    RandRange(-2.0f, -4.0f),
+                    RandRange(-0.3f, 0.3f)
+                };
+                p.scale = { 0.008f, 0.04f, 0.008f }; // Very thin wind streaks
+                p.color[0] = 0.7f; p.color[1] = 0.85f; p.color[2] = 1.0f; p.color[3] = 0.18f;
+                p.maxLifetime = RandRange(0.08f, 0.2f);
+                p.gravity = 1.5f;
+                p.groundY = groundY;
+                p.alive = true;
+                m_particles.push_back(p);
+            }
+        }
+    }
+
     // ---- Material-aware FX ----
 
     // Spawn impact FX at hit point based on material type

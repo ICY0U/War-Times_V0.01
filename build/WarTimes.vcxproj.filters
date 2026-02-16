@@ -22,6 +22,9 @@
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.cpp">
       <Filter>Source\Core</Filter>
     </ClCompile>
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\TimeWeatherSystem.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.cpp">
       <Filter>Source\Core</Filter>
     </ClCompile>
@@ -127,6 +130,9 @@
       <Filter>Source\Core</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\SceneCulling.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\TimeWeatherSystem.h">
       <Filter>Source\Core</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.h">

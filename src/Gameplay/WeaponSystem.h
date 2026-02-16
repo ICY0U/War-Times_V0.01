@@ -147,6 +147,7 @@ struct WeaponHitResult {
     int      agentIndex   = -1;       // AI agent hit (-1 = none)
     int      voxelCellIndex = -1;     // Voxel cell hit (-1 = not voxel)
     float    distance     = 0.0f;
+    bool     isHeadshot   = false;    // True if hit the head sphere of a ground agent
 };
 
 // ============================================================
@@ -239,6 +240,7 @@ public:
     int   GetCurrentAmmo() const           { return m_currentAmmo; }
     int   GetReserveAmmo() const           { return m_reserveAmmo; }
     int   GetMaxAmmo() const               { return GetCurrentDef().maxAmmo; }
+    void  AddReserveAmmo(int amount)       { m_reserveAmmo += amount; }
     bool  IsReloading() const              { return m_reloading; }
     float GetReloadProgress() const;
     bool  IsFiring() const                 { return m_fireTimer < 0.06f && m_fireTimer > 0.0f; }

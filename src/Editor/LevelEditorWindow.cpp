@@ -582,27 +582,49 @@ int LevelEditorWindow::PickEntity(const EditorState& state, int mx, int my) {
             if (mesh && mesh->HasBounds()) {
                 auto bc = mesh->GetBoundsCenter();
                 auto bh = mesh->GetBoundsHalfExtent();
-                center = { e.position[0] + bc.x * e.scale[0],
-                           e.position[1] + bc.y * e.scale[1],
-                           e.position[2] + bc.z * e.scale[2] };
+                // Bounds center/half are in local space, scale them
                 half = { bh.x * e.scale[0], bh.y * e.scale[1], bh.z * e.scale[2] };
+                // Rotate local bounds center offset into world space
+                XMMATRIX R = XMMatrixRotationRollPitchYaw(
+                    XMConvertToRadians(e.rotation[0]),
+                    XMConvertToRadians(e.rotation[1]),
+                    XMConvertToRadians(e.rotation[2]));
+                XMVECTOR off = XMVectorSet(bc.x * e.scale[0], bc.y * e.scale[1], bc.z * e.scale[2], 0);
+                off = XMVector3TransformNormal(off, R);
+                XMFLOAT3 rOff;
+                XMStoreFloat3(&rOff, off);
+                center = { e.position[0] + rOff.x, e.position[1] + rOff.y, e.position[2] + rOff.z };
             }
         }
-        XMFLOAT3 bmin = { center.x - half.x, center.y - half.y, center.z - half.z };
-        XMFLOAT3 bmax = { center.x + half.x, center.y + half.y, center.z + half.z };
 
+        // Build inverse rotation to transform ray into entity local space (OBB test)
+        XMMATRIX invR = XMMatrixTranspose(XMMatrixRotationRollPitchYaw(
+            XMConvertToRadians(e.rotation[0]),
+            XMConvertToRadians(e.rotation[1]),
+            XMConvertToRadians(e.rotation[2])));
+
+        // Transform ray origin and direction into local space
+        XMVECTOR localOriginV = XMVector3TransformCoord(
+            XMVectorSet(origin.x - center.x, origin.y - center.y, origin.z - center.z, 1), invR);
+        XMVECTOR localDirV = XMVector3TransformNormal(
+            XMVectorSet(dir.x, dir.y, dir.z, 0), invR);
+        XMFLOAT3 localOrigin, localDir;
+        XMStoreFloat3(&localOrigin, localOriginV);
+        XMStoreFloat3(&localDir, localDirV);
+
+        // Standard AABB slab test in local space
         float tmin = -999999.0f, tmax = 999999.0f;
-        auto slab = [&](float rO, float rD, float mn, float mx2) -> bool {
-            if (fabsf(rD) < 0.00001f) return (rO >= mn && rO <= mx2);
-            float t1 = (mn - rO) / rD, t2 = (mx2 - rO) / rD;
+        auto slab = [&](float rO, float rD, float halfE) -> bool {
+            if (fabsf(rD) < 0.00001f) return (rO >= -halfE && rO <= halfE);
+            float t1 = (-halfE - rO) / rD, t2 = (halfE - rO) / rD;
             if (t1 > t2) std::swap(t1, t2);
             tmin = (std::max)(tmin, t1);
             tmax = (std::min)(tmax, t2);
             return tmin <= tmax && tmax >= 0;
         };
-        if (!slab(origin.x, dir.x, bmin.x, bmax.x)) continue;
-        if (!slab(origin.y, dir.y, bmin.y, bmax.y)) continue;
-        if (!slab(origin.z, dir.z, bmin.z, bmax.z)) continue;
+        if (!slab(localOrigin.x, localDir.x, half.x)) continue;
+        if (!slab(localOrigin.y, localDir.y, half.y)) continue;
+        if (!slab(localOrigin.z, localDir.z, half.z)) continue;
 
         float dist = (tmin >= 0) ? tmin : tmax;
         if (dist < closestDist) { closestDist = dist; closest = i; }
@@ -1058,22 +1080,35 @@ void LevelEditorWindow::RenderEntities(ID3D11DeviceContext* ctx, const EditorSta
 void LevelEditorWindow::RenderSelectionHighlight(ID3D11DeviceContext* ctx, const EditorState& state) {
     (void)ctx;
 
+    // Helper: build rotation matrix from entity Euler angles
+    auto entityRotMat = [](const Entity& ent) -> XMFLOAT3X3 {
+        XMMATRIX R = XMMatrixRotationRollPitchYaw(
+            XMConvertToRadians(ent.rotation[0]),
+            XMConvertToRadians(ent.rotation[1]),
+            XMConvertToRadians(ent.rotation[2]));
+        XMFLOAT3X3 rm;
+        XMStoreFloat3x3(&rm, R);
+        return rm;
+    };
+
     // Hover
     if (m_hoveredEntity >= 0 && m_hoveredEntity < state.scene.GetEntityCount()
         && m_hoveredEntity != state.selectedEntity) {
         const auto& e = state.scene.GetEntity(m_hoveredEntity);
-        m_debugRenderer.DrawBox(
+        m_debugRenderer.DrawRotatedBox(
             { e.position[0], e.position[1], e.position[2] },
             { e.scale[0] * 0.52f, e.scale[1] * 0.52f, e.scale[2] * 0.52f },
+            entityRotMat(e),
             { 0.5f, 0.7f, 1.0f, 0.6f });
     }
 
     // Selected
     if (state.selectedEntity >= 0 && state.selectedEntity < state.scene.GetEntityCount()) {
         const auto& e = state.scene.GetEntity(state.selectedEntity);
-        XMFLOAT3 c = { e.position[0], e.position[1], e.position[2] };
-        m_debugRenderer.DrawBox(c,
+        m_debugRenderer.DrawRotatedBox(
+            { e.position[0], e.position[1], e.position[2] },
             { e.scale[0] * 0.52f, e.scale[1] * 0.52f, e.scale[2] * 0.52f },
+            entityRotMat(e),
             { 1.0f, 0.8f, 0.2f, 1.0f });
     }
 
@@ -1770,6 +1805,32 @@ void LevelEditorWindow::DrawEntitySection(EditorState& state) {
 
     if (ImGui::Button("+ Cube", ImVec2(65, 0))) {
         int idx = scene.AddEntity("", MeshType::Cube);
+        state.selectedEntity = idx;
+        m_unsavedChanges = true;
+    }
+    ImGui::SameLine();
+
+    // Medpack spawn
+    if (ImGui::Button("+ Med", ImVec2(50, 0))) {
+        int idx = scene.AddEntity("Medpack_" + std::to_string(scene.GetEntityCount()), MeshType::Cube);
+        auto& e = scene.GetEntity(idx);
+        e.color[0] = 0.1f; e.color[1] = 0.9f; e.color[2] = 0.2f; e.color[3] = 1.0f;
+        e.scale[0] = 0.4f; e.scale[1] = 0.25f; e.scale[2] = 0.3f;
+        e.pickupType = PickupType::Health;
+        e.pickupAmount = 25.0f;
+        state.selectedEntity = idx;
+        m_unsavedChanges = true;
+    }
+    ImGui::SameLine();
+
+    // Ammo spawn
+    if (ImGui::Button("+ Ammo", ImVec2(55, 0))) {
+        int idx = scene.AddEntity("AmmoPack_" + std::to_string(scene.GetEntityCount()), MeshType::Cube);
+        auto& e = scene.GetEntity(idx);
+        e.color[0] = 0.9f; e.color[1] = 0.7f; e.color[2] = 0.1f; e.color[3] = 1.0f;
+        e.scale[0] = 0.3f; e.scale[1] = 0.2f; e.scale[2] = 0.25f;
+        e.pickupType = PickupType::Ammo;
+        e.pickupAmount = 30.0f;
         state.selectedEntity = idx;
         m_unsavedChanges = true;
     }

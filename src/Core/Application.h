@@ -28,6 +28,7 @@
 #include "Editor/EditorPanels.h"
 #include "Editor/LevelEditorWindow.h"
 #include "Core/SceneCulling.h"
+#include "Core/TimeWeatherSystem.h"
 #include "Graphics/FSRUpscaler.h"
 
 namespace WT {
@@ -58,6 +59,7 @@ private:
     bool CreateAppWindow(HINSTANCE hInstance, int width, int height);
     bool InitGraphics();
     bool CreateCubeMesh();
+    bool CreateSphereMesh();
     bool CreateGroundMesh();
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -86,6 +88,7 @@ private:
     Shader      m_skyShader;
     Shader      m_groundShader;
     Mesh        m_cubeMesh;
+    Mesh        m_sphereMesh;
     Mesh        m_groundMesh;
     ConstantBuffer<CBPerFrame>  m_cbPerFrame;
     ConstantBuffer<CBPerObject> m_cbPerObject;
@@ -150,6 +153,10 @@ private:
 
     // Culling & streaming
     SceneCuller m_sceneCuller;
+
+    // Day/Night + Weather
+    TimeWeatherSystem  m_timeWeather;
+    TimeWeatherSettings m_timeWeatherSettings;
 };
 
 } // namespace WT

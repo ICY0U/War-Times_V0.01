@@ -139,6 +139,12 @@ struct EditorState {
     float charHeadBobSpeed    = 10.0f;
     float charHeadBobAmount   = 0.04f;
     float charHeadBobSway     = 0.02f;
+
+    // Peek/Lean
+    bool  charLeanEnabled      = true;
+    float charLeanAngle        = 5.0f;    // Max lean roll in degrees
+    float charLeanOffset       = 0.6f;    // Horizontal camera offset
+    float charLeanSpeed        = 8.0f;    // Lerp speed
     float charHeadColor[4]    = { 0.85f, 0.70f, 0.55f, 1.0f };
     float charTorsoColor[4]   = { 0.25f, 0.35f, 0.20f, 1.0f };
     float charArmsColor[4]    = { 0.25f, 0.35f, 0.20f, 1.0f };
@@ -157,7 +163,9 @@ struct EditorState {
 
     // AI Agents
     bool  aiShowDebug         = false;
+    bool  aiXRayAgents         = false;   // Show agents through walls
     int   aiSelectedAgent     = -1;
+    int   aiDefaultType       = 0;    // 0=Ground, 1=Drone
     float aiDefaultSpeed      = 3.0f;
     float aiDefaultChaseSpeed = 5.0f;
     float aiDefaultDetectRange = 10.0f;
@@ -178,6 +186,9 @@ struct EditorState {
     int   weaponType             = 0;        // WeaponType enum
     bool  weaponShowDebug        = false;
     bool  weaponShowHUD          = true;
+    bool  weaponLaserEnabled     = true;     // Gun laser sight
+    float weaponLaserColor[3]    = { 1.0f, 0.1f, 0.1f }; // Red
+    float weaponLaserMaxDist     = 100.0f;   // Max laser range
     WeaponSystem* pWeaponSystem  = nullptr;  // Pointer for editor model tuning
 
     // Level Editor (separate window)
@@ -206,6 +217,18 @@ struct EditorState {
     int   fsrQuality    = 1;       // FSRQuality enum index (0=UltraQ, 1=Quality, 2=Balanced, 3=Perf)
     float fsrSharpness  = 0.2f;    // RCAS sharpness (0 = max sharpening, 1 = off)
     bool  fsrDirty      = false;
+
+    // Day/Night Cycle
+    bool  dayNightEnabled   = false;
+    float timeOfDay         = 12.0f;    // 0-24 hours (12 = noon)
+    float daySpeed          = 1.0f;     // 1 = 1 in-game hour per real minute
+    bool  dayNightPaused    = false;
+    float sunAzimuth        = 135.0f;   // Sun compass bearing in degrees
+
+    // Weather System
+    int   weatherType       = 0;        // WeatherType enum (0=Clear,1=Cloudy,2=Overcast,3=Foggy,4=Rainy)
+    float windDirection     = 0.0f;     // Degrees
+    float windSpeed         = 1.0f;     // 0-5 scale
 
     // Flags
     bool lightingDirty  = false;
@@ -254,6 +277,8 @@ private:
     void SectionWeapon(EditorState& state);
     void SectionCamera(EditorState& state, Camera& camera);
     void SectionCulling(EditorState& state);
+    void SectionDayNight(EditorState& state);
+    void SectionWeather(EditorState& state);
     void SectionRenderer(EditorState& state, Renderer& renderer);
     void SectionPerformance(EditorState& state, Renderer& renderer, int fps, float dt);
 

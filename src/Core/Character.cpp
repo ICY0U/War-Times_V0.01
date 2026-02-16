@@ -25,6 +25,11 @@ void Character::Init(const XMFLOAT3& startPos, float startYaw) {
     m_eyeHeight = 1.6f;
     m_cameraTilt = 0.0f;
     m_strafeDir  = 0.0f;
+    m_leanAmount = 0.0f;
+    m_leanTarget = 0.0f;
+    m_health     = 100.0f;
+    m_maxHealth  = 100.0f;
+    m_damageFlash = 0.0f;
 
     // Initialize animation state machine
     m_animSMInitialized = false;
@@ -58,13 +63,31 @@ void Character::Update(float dt, Input& input, Camera& camera, const CharacterSe
     UpdateAnimation(dt, settings);
     UpdateHeadBob(dt, settings);
     UpdateCameraTilt(dt, input, settings);
+    UpdateLean(dt, input, settings, editorWantsKeyboard);
 
-    // Place camera at eye position
+    // Damage flash decay
+    if (m_damageFlash > 0.0f) {
+        m_damageFlash -= dt * 3.0f;  // ~0.33 second fade
+        if (m_damageFlash < 0.0f) m_damageFlash = 0.0f;
+    }
+
+    // Place camera at eye position + lean offset
     XMFLOAT3 eyePos = GetEyePosition();
+    if (settings.leanEnabled && fabsf(m_leanAmount) > 0.001f) {
+        // Offset perpendicular to facing direction (camera right vector)
+        float rightX =  cosf(m_yaw);
+        float rightZ = -sinf(m_yaw);
+        float offset = m_leanAmount * settings.leanOffset;
+        eyePos.x += rightX * offset;
+        eyePos.z += rightZ * offset;
+    }
     camera.SetPosition(eyePos);
 
-    // Apply camera roll (tilt)
-    camera.SetRoll(m_cameraTilt * (PI / 180.0f));
+    // Apply camera roll (strafe tilt + lean)
+    float totalRoll = m_cameraTilt;
+    if (settings.leanEnabled)
+        totalRoll += m_leanAmount * -settings.leanAngle;
+    camera.SetRoll(totalRoll * (PI / 180.0f));
 }
 
 void Character::UpdateMovement(float dt, Input& input, Camera& camera,
@@ -272,6 +295,55 @@ void Character::UpdateCameraTilt(float dt, Input& input, const CharacterSettings
     if (fabsf(m_cameraTilt) < 0.01f && fabsf(targetTilt) < 0.01f) {
         m_cameraTilt = 0.0f;
     }
+}
+
+// ============================================================
+// Peek / Lean — Q/E keys for leaning left/right
+// ============================================================
+
+void Character::UpdateLean(float dt, Input& input, const CharacterSettings& settings, bool editorWantsKeyboard) {
+    if (!settings.leanEnabled || editorWantsKeyboard) {
+        // Decay lean when disabled
+        m_leanTarget = 0.0f;
+        float decay = 12.0f * dt;
+        if (decay > 1.0f) decay = 1.0f;
+        m_leanAmount += (0.0f - m_leanAmount) * decay;
+        if (fabsf(m_leanAmount) < 0.001f) m_leanAmount = 0.0f;
+        return;
+    }
+
+    // Read Q/E inputs
+    bool leanLeft  = input.IsKeyDown('Q');
+    bool leanRight = input.IsKeyDown('E');
+
+    if (leanLeft && !leanRight)
+        m_leanTarget = -1.0f;
+    else if (leanRight && !leanLeft)
+        m_leanTarget = 1.0f;
+    else
+        m_leanTarget = 0.0f;
+
+    // Smooth interpolation
+    float lerpRate = settings.leanSpeed * dt;
+    if (lerpRate > 1.0f) lerpRate = 1.0f;
+    m_leanAmount += (m_leanTarget - m_leanAmount) * lerpRate;
+
+    // Snap to zero
+    if (fabsf(m_leanAmount) < 0.001f && fabsf(m_leanTarget) < 0.001f)
+        m_leanAmount = 0.0f;
+}
+
+float Character::GetLeanRoll() const {
+    // Return roll in degrees (negative = lean left tilts camera left)
+    return m_leanAmount * -15.0f;  // Will be overridden by settings in Update
+}
+
+XMFLOAT3 Character::GetLeanOffset() const {
+    // Offset perpendicular to facing direction (right vector)
+    float rightX =  cosf(m_yaw);
+    float rightZ = -sinf(m_yaw);
+    float offset = m_leanAmount * 0.5f;  // Will be overridden by settings in Update
+    return { rightX * offset, 0.0f, rightZ * offset };
 }
 
 // ============================================================
@@ -584,6 +656,18 @@ void Character::SetupAnimStateMachine() {
 
     // Start in idle
     m_animSM.ForceState(AnimClipType::Idle);
+}
+
+void Character::TakeDamage(float amount) {
+    if (m_health <= 0.0f) return;
+    m_health -= amount;
+    m_damageFlash = 1.0f;
+    if (m_health < 0.0f) m_health = 0.0f;
+}
+
+void Character::Heal(float amount) {
+    m_health += amount;
+    if (m_health > m_maxHealth) m_health = m_maxHealth;
 }
 
 } // namespace WT

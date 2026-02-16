@@ -552,6 +552,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\SceneCulling.h" />
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\TimeWeatherSystem.cpp" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\TimeWeatherSystem.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Editor\EditorPanels.cpp" />

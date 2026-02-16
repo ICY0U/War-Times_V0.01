@@ -9,6 +9,7 @@ namespace WT {
 using namespace DirectX;
 
 class WeaponSystem;
+class Character;
 class Renderer;
 
 // ============================================================
@@ -21,6 +22,8 @@ struct HUDSettings {
     bool  showAmmo         = true;
     bool  showHitMarker    = true;
     bool  showReloadBar    = true;
+    bool  showCompass      = true;
+    bool  showHealthBar    = true;
     float hudOpacity       = 1.0f;
 };
 
@@ -30,7 +33,8 @@ public:
     void Shutdown();
 
     // Draw HUD elements (call inside ImGui frame, after scene rendering)
-    void Draw(const WeaponSystem& weapon, int screenWidth, int screenHeight);
+    void Draw(const WeaponSystem& weapon, const Character& character,
+              float playerYaw, int screenWidth, int screenHeight);
 
     HUDSettings& GetSettings() { return m_settings; }
     const HUDSettings& GetSettings() const { return m_settings; }
@@ -40,6 +44,9 @@ private:
     void DrawAmmoCounter(const WeaponSystem& weapon, float screenW, float screenH);
     void DrawHitMarker(const WeaponSystem& weapon, float cx, float cy);
     void DrawReloadBar(const WeaponSystem& weapon, float cx, float cy);
+    void DrawCompass(float playerYaw, float screenW);
+    void DrawHealthBar(const Character& character, float screenW, float screenH);
+    void DrawDamageVignette(const Character& character, float screenW, float screenH);
 
     HUDSettings m_settings;
 };

@@ -17,6 +17,10 @@ namespace WT {
 class LevelFile {
 public:
     // Save scene to a .wtlevel file
+    // NOTE: If you add new persistent fields to Entity, add them here AND in Load().
+    // Runtime-only fields (do NOT save): cachedTexture, textureCacheDirty,
+    // damageFlashTimer, pickupRespawnTimer, pickupCollected, hitDecal*,
+    // voxelMask (reconstructed from voxelRes via ResetVoxelMask).
     static bool Save(const std::string& path, const Scene& scene) {
         LOG_INFO("LevelFile::Save: attempting to save %d entities to '%s'", scene.GetEntityCount(), path.c_str());
         
@@ -62,6 +66,19 @@ public:
             file << "break_pieces = " << e.breakPieceCount << "\n";
             file << "voxel_destruct = " << (e.voxelDestruction ? 1 : 0) << "\n";
             file << "voxel_res = " << e.voxelRes << "\n";
+            file << "pickup_type = " << static_cast<int>(e.pickupType) << "\n";
+            file << "pickup_amount = " << e.pickupAmount << "\n";
+            file << "pickup_radius = " << e.pickupRadius << "\n";
+            file << "pickup_bob_speed = " << e.pickupBobSpeed << "\n";
+            file << "pickup_bob_height = " << e.pickupBobHeight << "\n";
+            file << "pickup_spin_speed = " << e.pickupSpinSpeed << "\n";
+            file << "pickup_respawn = " << e.pickupRespawnTime << "\n";
+            // Damage visuals & misc settings
+            file << "damage_flash_duration = " << e.damageFlashDuration << "\n";
+            file << "damage_flash_color = " << e.damageFlashColor[0] << " " << e.damageFlashColor[1] << " " << e.damageFlashColor[2] << "\n";
+            file << "smoke_on_damage = " << (e.smokeOnDamage ? 1 : 0) << "\n";
+            file << "no_collision = " << (e.noCollision ? 1 : 0) << "\n";
+            file << "despawn_timer = " << e.despawnTimer << "\n";
             file << "\n";
         }
 
@@ -151,6 +168,18 @@ public:
                 currentEntity.voxelRes = std::stoi(val);
                 currentEntity.ResetVoxelMask();
             }
+            else if (key == "pickup_type") currentEntity.pickupType = static_cast<PickupType>(std::stoi(val));
+            else if (key == "pickup_amount") currentEntity.pickupAmount = std::stof(val);
+            else if (key == "pickup_radius") currentEntity.pickupRadius = std::stof(val);
+            else if (key == "pickup_bob_speed") currentEntity.pickupBobSpeed = std::stof(val);
+            else if (key == "pickup_bob_height") currentEntity.pickupBobHeight = std::stof(val);
+            else if (key == "pickup_spin_speed") currentEntity.pickupSpinSpeed = std::stof(val);
+            else if (key == "pickup_respawn") currentEntity.pickupRespawnTime = std::stof(val);
+            else if (key == "damage_flash_duration") currentEntity.damageFlashDuration = std::stof(val);
+            else if (key == "damage_flash_color") ParseFloat3(val, currentEntity.damageFlashColor);
+            else if (key == "smoke_on_damage") currentEntity.smokeOnDamage = (std::stoi(val) != 0);
+            else if (key == "no_collision") currentEntity.noCollision = (std::stoi(val) != 0);
+            else if (key == "despawn_timer") currentEntity.despawnTimer = std::stof(val);
         }
 
         // Commit last entity if file didn't end with blank line

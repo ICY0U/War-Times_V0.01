@@ -304,6 +304,9 @@ bool Application::InitGraphics() {
     // Create test cube
     if (!CreateCubeMesh()) return false;
 
+    // Create sphere mesh (for agents)
+    if (!CreateSphereMesh()) return false;
+
     // Create ground plane (single large quad)
     if (!CreateGroundMesh()) return false;
 
@@ -413,6 +416,59 @@ bool Application::CreateCubeMesh() {
     };
 
     return m_cubeMesh.Create(m_renderer.GetDevice(), vertices, indices);
+}
+
+bool Application::CreateSphereMesh() {
+    // UV sphere — 16 slices x 12 stacks, unit radius centered at origin
+    using V = VertexPosNormalColor;
+    const int slices = 16;
+    const int stacks = 12;
+    XMFLOAT4 white = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    std::vector<V> vertices;
+    std::vector<UINT> indices;
+
+    // Generate vertices
+    for (int st = 0; st <= stacks; st++) {
+        float phi = XM_PI * static_cast<float>(st) / static_cast<float>(stacks);
+        float sinPhi = sinf(phi);
+        float cosPhi = cosf(phi);
+        for (int sl = 0; sl <= slices; sl++) {
+            float theta = 2.0f * XM_PI * static_cast<float>(sl) / static_cast<float>(slices);
+            float sinTheta = sinf(theta);
+            float cosTheta = cosf(theta);
+
+            float x = sinPhi * cosTheta;
+            float y = cosPhi;
+            float z = sinPhi * sinTheta;
+
+            float u = static_cast<float>(sl) / static_cast<float>(slices);
+            float v = static_cast<float>(st) / static_cast<float>(stacks);
+
+            V vert;
+            vert.Position = { x * 0.5f, y * 0.5f, z * 0.5f }; // radius 0.5 to match cube extents
+            vert.Normal   = { x, y, z };
+            vert.Color    = white;
+            vert.TexCoord = { u, v };
+            vertices.push_back(vert);
+        }
+    }
+
+    // Generate indices
+    for (int st = 0; st < stacks; st++) {
+        for (int sl = 0; sl < slices; sl++) {
+            int first  = st * (slices + 1) + sl;
+            int second = first + slices + 1;
+            indices.push_back(static_cast<UINT>(first));
+            indices.push_back(static_cast<UINT>(second));
+            indices.push_back(static_cast<UINT>(first + 1));
+            indices.push_back(static_cast<UINT>(second));
+            indices.push_back(static_cast<UINT>(second + 1));
+            indices.push_back(static_cast<UINT>(first + 1));
+        }
+    }
+
+    return m_sphereMesh.Create(m_renderer.GetDevice(), vertices, indices);
 }
 
 bool Application::CreateGroundMesh() {
@@ -683,6 +739,10 @@ void Application::Update(float dt) {
         m_charSettings.headBobSpeed   = m_editorState.charHeadBobSpeed;
         m_charSettings.headBobAmount  = m_editorState.charHeadBobAmount;
         m_charSettings.headBobSway    = m_editorState.charHeadBobSway;
+        m_charSettings.leanEnabled    = m_editorState.charLeanEnabled;
+        m_charSettings.leanAngle      = m_editorState.charLeanAngle;
+        m_charSettings.leanOffset     = m_editorState.charLeanOffset;
+        m_charSettings.leanSpeed      = m_editorState.charLeanSpeed;
         memcpy(m_charSettings.headColor,  m_editorState.charHeadColor,  sizeof(float) * 4);
         memcpy(m_charSettings.torsoColor, m_editorState.charTorsoColor, sizeof(float) * 4);
         memcpy(m_charSettings.armsColor,  m_editorState.charArmsColor,  sizeof(float) * 4);
@@ -692,6 +752,19 @@ void Application::Update(float dt) {
         m_character.Update(dt, m_input, m_camera, m_charSettings,
                            editorWantsMouse, editorWantsKeyboard,
                            m_editorState.physicsCollisionEnabled ? &m_physicsWorld : nullptr);
+
+        // ---- AI Sound: Footsteps ----
+        // Emit footstep sounds when player is walking/sprinting
+        if (m_character.IsMoving() && m_character.IsGrounded()) {
+            static float footstepTimer = 0.0f;
+            float stepInterval = m_character.IsSprinting() ? 0.25f : 0.4f;
+            footstepTimer += dt;
+            if (footstepTimer >= stepInterval) {
+                footstepTimer -= stepInterval;
+                float radius = m_character.IsSprinting() ? 10.0f : 5.0f;
+                m_aiSystem.PostFootstep(m_character.GetPosition(), radius);
+            }
+        }
 
         // ---- Weapon System Update (only in character mode) ----
         m_weaponSystem.Update(dt, m_input, m_camera, m_character, editorWantsMouse,
@@ -710,7 +783,14 @@ void Application::Update(float dt) {
         if (m_weaponSystem.JustFired()) {
             const auto& hit = m_weaponSystem.GetLastHit();
 
+            // ---- AI Sound: Gunshot ----
+            XMFLOAT3 firePos = m_characterMode ? m_character.GetPosition() : m_camera.GetPosition();
+            m_aiSystem.PostGunshot(firePos);
+
+            // ---- AI Sound: Bullet impact ----
             if (hit.hit) {
+                m_aiSystem.PostBulletImpact(hit.hitPosition);
+
                 // If we hit an entity, use material-aware impact FX
                 if (hit.entityIndex >= 0 && hit.entityIndex < m_editorState.scene.GetEntityCount()) {
                     auto& entity = m_editorState.scene.GetEntity(hit.entityIndex);
@@ -1069,13 +1149,28 @@ void Application::Update(float dt) {
         XMFLOAT3 spawnPos = { m_editorState.aiSpawnPos[0],
                               m_editorState.aiSpawnPos[1],
                               m_editorState.aiSpawnPos[2] };
-        int idx = m_aiSystem.AddAgent("", spawnPos);
+        bool isDrone = (m_editorState.aiDefaultType == 1);
+        int idx = m_aiSystem.AddAgent(isDrone ? "Drone" : "", spawnPos);
         AIAgent& agent = m_aiSystem.GetAgent(idx);
+        agent.type = isDrone ? AIAgentType::Drone : AIAgentType::Ground;
         agent.settings.moveSpeed   = m_editorState.aiDefaultSpeed;
         agent.settings.chaseSpeed  = m_editorState.aiDefaultChaseSpeed;
         agent.settings.detectRange = m_editorState.aiDefaultDetectRange;
         agent.settings.loseRange   = m_editorState.aiDefaultLoseRange;
         memcpy(agent.settings.bodyColor, m_editorState.aiDefaultColor, sizeof(float) * 4);
+        if (isDrone) {
+            // Drone-specific defaults
+            agent.settings.fovAngle = 360.0f;   // 360° vision
+            agent.settings.bodyScale = 0.6f;     // Smaller body
+            agent.settings.seekCoverOnDamage = false;  // Drones don't take cover
+            agent.position.y = spawnPos.y + agent.settings.droneHoverHeight;
+            agent.homePosition.y = spawnPos.y;
+            agent.droneTargetAlt = agent.settings.droneHoverHeight;
+            // Cyan color for drones by default
+            agent.settings.bodyColor[0] = 0.2f;
+            agent.settings.bodyColor[1] = 0.7f;
+            agent.settings.bodyColor[2] = 0.9f;
+        }
         m_editorState.aiSelectedAgent = idx;
     }
 
@@ -1086,6 +1181,26 @@ void Application::Update(float dt) {
     }
     m_aiSystem.Update(dt, m_navGrid, playerPos,
                        m_editorState.physicsCollisionEnabled ? &m_physicsWorld : nullptr);
+
+    // ---- Drone downwash particle effects ----
+    for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
+        auto& agent = m_aiSystem.GetAgent(i);
+        if (!agent.active || !agent.alive) continue;
+        if (agent.type != AIAgentType::Drone) continue;
+
+        // Emit downwash on timer
+        agent.droneDownwashTimer -= dt;
+        if (agent.droneDownwashTimer <= 0.0f) {
+            agent.droneDownwashTimer = agent.settings.droneDownwashRate;
+            m_particles.SpawnDroneDownwash(
+                agent.position,
+                agent.settings.bodyScale,
+                m_editorState.charGroundY,
+                agent.position.y - m_editorState.charGroundY,
+                agent.droneSpeedCurrent,
+                agent.droneBobPhase);
+        }
+    }
 
     // Apply editor state changes from panels
     if (m_editorState.rendererDirty) {
@@ -1158,6 +1273,91 @@ void Application::Update(float dt) {
     m_ssaoSettings.bias       = m_editorState.ssaoBias;
     m_ssaoSettings.intensity  = m_editorState.ssaoIntensity;
     m_ssaoSettings.kernelSize = m_editorState.ssaoKernelSize;
+
+    // ---- Day/Night + Weather System ----
+    {
+        // Sync editor state -> TimeWeatherSettings
+        m_timeWeatherSettings.dayNightEnabled = m_editorState.dayNightEnabled;
+        m_timeWeatherSettings.timeOfDay       = m_editorState.timeOfDay;
+        m_timeWeatherSettings.daySpeed        = m_editorState.daySpeed;
+        m_timeWeatherSettings.paused          = m_editorState.dayNightPaused;
+        m_timeWeatherSettings.sunAzimuth      = m_editorState.sunAzimuth;
+        m_timeWeatherSettings.targetWeather   = static_cast<WeatherType>(m_editorState.weatherType);
+        m_timeWeatherSettings.windDirection   = m_editorState.windDirection;
+        m_timeWeatherSettings.windSpeed       = m_editorState.windSpeed;
+
+        m_timeWeather.Update(dt, m_timeWeatherSettings);
+
+        // Sync time back to editor (it advances in the system)
+        m_editorState.timeOfDay = m_timeWeatherSettings.timeOfDay;
+
+        // When day/night is enabled, override editor lighting/sky from computed values
+        if (m_editorState.dayNightEnabled) {
+            m_timeWeather.ApplyToEditorState(
+                m_editorState.sunDirection, m_editorState.sunIntensity, m_editorState.sunColor,
+                m_editorState.ambientColor, m_editorState.ambientIntensity,
+                m_editorState.fogColor, m_editorState.fogDensity,
+                m_editorState.skyZenithColor, m_editorState.skyHorizonColor, m_editorState.skyGroundColor,
+                m_editorState.skyBrightness,
+                m_editorState.cloudCoverage, m_editorState.cloudSpeed, m_editorState.cloudColor
+            );
+            m_editorState.lightingDirty = true;
+            m_editorState.skyDirty = true;
+        }
+    }
+
+    // ---- Pickup Collection ----
+    if (m_characterMode) {
+        XMFLOAT3 pPos = m_character.GetPosition();
+        for (int i = 0; i < m_editorState.scene.GetEntityCount(); i++) {
+            auto& e = m_editorState.scene.GetEntity(i);
+            if (e.pickupType == PickupType::None || e.pickupCollected) continue;
+
+            // Distance check
+            float dx = e.position[0] - pPos.x;
+            float dy = e.position[1] - pPos.y;
+            float dz = e.position[2] - pPos.z;
+            float distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq < e.pickupRadius * e.pickupRadius) {
+                // Collect!
+                if (e.pickupType == PickupType::Health) {
+                    m_character.Heal(e.pickupAmount);
+                } else if (e.pickupType == PickupType::Ammo) {
+                    m_weaponSystem.AddReserveAmmo(static_cast<int>(e.pickupAmount));
+                }
+                e.pickupCollected = true;
+                e.pickupRespawnTimer = e.pickupRespawnTime;
+                e.visible = false;
+            }
+        }
+
+        // Update pickup respawn timers
+        for (int i = 0; i < m_editorState.scene.GetEntityCount(); i++) {
+            auto& e = m_editorState.scene.GetEntity(i);
+            if (!e.pickupCollected) continue;
+            e.pickupRespawnTimer -= dt;
+            if (e.pickupRespawnTimer <= 0.0f) {
+                e.pickupCollected = false;
+                e.visible = true;
+                e.pickupRespawnTimer = 0.0f;
+            }
+        }
+    }
+
+    // ---- Pickup Bobbing & Spinning Animation ----
+    {
+        float totalTime = m_timer.TotalTime();
+        for (int i = 0; i < m_editorState.scene.GetEntityCount(); i++) {
+            auto& e = m_editorState.scene.GetEntity(i);
+            if (e.pickupType == PickupType::None || e.pickupCollected) continue;
+            // Spin
+            e.rotation[1] += e.pickupSpinSpeed * dt;
+            if (e.rotation[1] > 360.0f) e.rotation[1] -= 360.0f;
+            // Bob (sinusoidal offset on Y position)
+            e.position[1] = e.scale[1] * 0.5f + 0.5f +
+                            sinf(totalTime * e.pickupBobSpeed) * e.pickupBobHeight;
+        }
+    }
 
     // Update level editor
     m_levelEditor.Update(dt, m_editorState);
@@ -1262,20 +1462,51 @@ void Application::Render() {
         for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
             const auto& agent = m_aiSystem.GetAgent(i);
             if (!agent.visible || !agent.active) continue;
-            float halfScale = agent.settings.bodyScale * 0.5f;
-            XMMATRIX agentScale = XMMatrixScaling(agent.settings.bodyScale,
-                                                   agent.settings.bodyScale,
-                                                   agent.settings.bodyScale);
-            XMMATRIX agentRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
-            XMMATRIX agentTrans = XMMatrixTranslation(agent.position.x,
-                                                       agent.position.y + halfScale,
-                                                       agent.position.z);
-            XMMATRIX agentWorld = agentScale * agentRot * agentTrans;
-            XMStoreFloat4x4(&objData.World, XMMatrixTranspose(agentWorld));
-            // Shadow shader doesn't read WorldInvTranspose — skip inverse
-            m_cbPerObject.Update(ctx, objData);
-            m_cbPerObject.BindVS(ctx, 1);
-            m_cubeMesh.Draw(ctx);
+            float bs = agent.settings.bodyScale;
+
+            if (agent.type == AIAgentType::Drone) {
+                // Drone — sphere shadow
+                XMMATRIX droneScale = XMMatrixScaling(bs, bs, bs);
+                XMMATRIX droneRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
+                XMMATRIX droneTrans = XMMatrixTranslation(agent.position.x,
+                                                           agent.position.y,
+                                                           agent.position.z);
+                XMMATRIX droneWorld = droneScale * droneRot * droneTrans;
+                XMStoreFloat4x4(&objData.World, XMMatrixTranspose(droneWorld));
+                m_cbPerObject.Update(ctx, objData);
+                m_cbPerObject.BindVS(ctx, 1);
+                m_sphereMesh.Draw(ctx);
+            } else {
+                // Ground — torso cube + head sphere
+                float bodyW = bs * 0.7f;
+                float bodyH = bs * 1.0f;
+                float bodyD = bs * 0.5f;
+                float headR = bs * 0.35f;
+
+                // Torso
+                XMMATRIX torsoScale = XMMatrixScaling(bodyW, bodyH, bodyD);
+                XMMATRIX torsoRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
+                XMMATRIX torsoTrans = XMMatrixTranslation(agent.position.x,
+                                                           agent.position.y + bodyH * 0.5f,
+                                                           agent.position.z);
+                XMMATRIX torsoWorld = torsoScale * torsoRot * torsoTrans;
+                XMStoreFloat4x4(&objData.World, XMMatrixTranspose(torsoWorld));
+                m_cbPerObject.Update(ctx, objData);
+                m_cbPerObject.BindVS(ctx, 1);
+                m_cubeMesh.Draw(ctx);
+
+                // Head
+                float headDiam = headR * 2.0f;
+                XMMATRIX headScale = XMMatrixScaling(headDiam, headDiam, headDiam);
+                XMMATRIX headTrans = XMMatrixTranslation(agent.position.x,
+                                                          agent.position.y + bodyH + headR,
+                                                          agent.position.z);
+                XMMATRIX headWorld = headScale * headTrans;
+                XMStoreFloat4x4(&objData.World, XMMatrixTranspose(headWorld));
+                m_cbPerObject.Update(ctx, objData);
+                m_cbPerObject.BindVS(ctx, 1);
+                m_sphereMesh.Draw(ctx);
+            }
         }
 
         m_shadowMap.EndShadowPass(ctx);
@@ -1598,6 +1829,109 @@ void Application::Render() {
         m_cbPerObject.BindBoth(ctx, 1);
     }
 
+    // ---- Draw AI Agents ----
+    {
+        if (m_editorState.aiXRayAgents)
+            m_renderer.SetDepthEnabled(false);
+
+        m_voxelShader.Bind(ctx);
+        for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
+            const auto& agent = m_aiSystem.GetAgent(i);
+            if (!agent.visible || !agent.active) continue;
+
+            float bs = agent.settings.bodyScale;
+
+            // Color (flash white on damage)
+            XMFLOAT4 agentColor;
+            if (agent.damageFlashTimer > 0.0f) {
+                agentColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+            } else {
+                agentColor = { agent.settings.bodyColor[0],
+                               agent.settings.bodyColor[1],
+                               agent.settings.bodyColor[2],
+                               agent.settings.bodyColor[3] };
+            }
+
+            CBPerObject agentObj = {};
+
+            if (agent.type == AIAgentType::Drone) {
+                // ---- Drone: sphere body ----
+                XMMATRIX droneScale = XMMatrixScaling(bs, bs, bs);
+                XMMATRIX droneRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
+                // Apply pitch/roll tilt
+                XMMATRIX droneTilt  = XMMatrixRotationRollPitchYaw(
+                    XMConvertToRadians(agent.dronePitch),
+                    0.0f,
+                    XMConvertToRadians(agent.droneRoll));
+                XMMATRIX droneTrans = XMMatrixTranslation(agent.position.x,
+                                                           agent.position.y,
+                                                           agent.position.z);
+                XMMATRIX droneWorld = droneScale * droneTilt * droneRot * droneTrans;
+
+                XMStoreFloat4x4(&agentObj.World, XMMatrixTranspose(droneWorld));
+                XMStoreFloat4x4(&agentObj.WorldInvTranspose, XMMatrixInverse(nullptr, droneWorld));
+                agentObj.ObjectColor = agentColor;
+                m_cbPerObject.Update(ctx, agentObj);
+                m_cbPerObject.BindBoth(ctx, 1);
+                m_sphereMesh.Draw(ctx);
+                m_renderer.TrackDrawCall(m_sphereMesh.GetIndexCount());
+            } else {
+                // ---- Ground agent: body (tall cube) + sphere head ----
+                float bodyW = bs * 0.7f;   // Narrower than tall
+                float bodyH = bs * 1.0f;   // Torso height
+                float bodyD = bs * 0.5f;   // Depth
+                float headR = bs * 0.35f;  // Head radius
+
+                // Torso (cube) — centered above ground
+                XMMATRIX torsoScale = XMMatrixScaling(bodyW, bodyH, bodyD);
+                XMMATRIX torsoRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
+                XMMATRIX torsoTrans = XMMatrixTranslation(agent.position.x,
+                                                           agent.position.y + bodyH * 0.5f,
+                                                           agent.position.z);
+                XMMATRIX torsoWorld = torsoScale * torsoRot * torsoTrans;
+
+                XMStoreFloat4x4(&agentObj.World, XMMatrixTranspose(torsoWorld));
+                XMStoreFloat4x4(&agentObj.WorldInvTranspose, XMMatrixInverse(nullptr, torsoWorld));
+                agentObj.ObjectColor = agentColor;
+                m_cbPerObject.Update(ctx, agentObj);
+                m_cbPerObject.BindBoth(ctx, 1);
+                m_cubeMesh.Draw(ctx);
+                m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
+
+                // Head (sphere) — on top of torso
+                float headDiam = headR * 2.0f;
+                XMMATRIX headScale = XMMatrixScaling(headDiam, headDiam, headDiam);
+                XMMATRIX headRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
+                XMMATRIX headTrans = XMMatrixTranslation(agent.position.x,
+                                                          agent.position.y + bodyH + headR,
+                                                          agent.position.z);
+                XMMATRIX headWorld = headScale * headRot * headTrans;
+
+                // Slightly lighter color for head
+                XMFLOAT4 headColor = agentColor;
+                headColor.x = (std::min)(headColor.x * 1.2f, 1.0f);
+                headColor.y = (std::min)(headColor.y * 1.2f, 1.0f);
+                headColor.z = (std::min)(headColor.z * 1.2f, 1.0f);
+
+                XMStoreFloat4x4(&agentObj.World, XMMatrixTranspose(headWorld));
+                XMStoreFloat4x4(&agentObj.WorldInvTranspose, XMMatrixInverse(nullptr, headWorld));
+                agentObj.ObjectColor = headColor;
+                m_cbPerObject.Update(ctx, agentObj);
+                m_cbPerObject.BindBoth(ctx, 1);
+                m_sphereMesh.Draw(ctx);
+                m_renderer.TrackDrawCall(m_sphereMesh.GetIndexCount());
+            }
+        }
+
+        // Reset ObjectColor
+        objData.ObjectColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+        m_cbPerObject.Update(ctx, objData);
+        m_cbPerObject.BindBoth(ctx, 1);
+
+        if (m_editorState.aiXRayAgents)
+            m_renderer.SetDepthEnabled(true);
+    }
+
     // ---- Draw Weapon Viewmodel (first-person gun) ----
     if (m_characterMode) {
         m_voxelShader.Bind(ctx);
@@ -1744,6 +2078,83 @@ void Application::Render() {
         m_ssao.Unbind(ctx);
     }
 
+    // ---- Gun Laser Sight ----
+    if (m_characterMode && m_editorState.weaponLaserEnabled) {
+        // Temporarily enable debug renderer for laser (even if debug view is off)
+        bool wasEnabled = m_debugRenderer.IsEnabled();
+        m_debugRenderer.SetEnabled(true);
+
+        XMFLOAT3 camPos = m_camera.GetPosition();
+        XMFLOAT3 camFwd = m_camera.GetForward();
+        XMFLOAT3 camRight = m_camera.GetRight();
+        XMFLOAT3 camUp    = m_camera.GetUp();
+
+        // Compute gun barrel tip in world space
+        // Use weapon viewmodel offsets to place laser origin at barrel end
+        const auto& ws = m_weaponSystem.GetSettings();
+        const auto& wd = m_weaponSystem.GetCurrentDef();
+        float gunOffX = ws.viewmodelOffsetX;
+        float gunOffY = ws.viewmodelOffsetY;
+        float gunOffZ = ws.viewmodelOffsetZ;
+        float barrelLen = wd.barrelLength + wd.modelOffsetZ;
+
+        // Barrel tip = camera + viewmodel offset + forward * barrel length
+        XMFLOAT3 barrelTip = {
+            camPos.x + camRight.x * gunOffX + camUp.x * gunOffY + camFwd.x * (gunOffZ + barrelLen),
+            camPos.y + camRight.y * gunOffX + camUp.y * gunOffY + camFwd.y * (gunOffZ + barrelLen),
+            camPos.z + camRight.z * gunOffX + camUp.z * gunOffY + camFwd.z * (gunOffZ + barrelLen)
+        };
+
+        // Raycast along camera forward to find hit point
+        float maxDist = m_editorState.weaponLaserMaxDist;
+        XMFLOAT3 laserEnd = {
+            camPos.x + camFwd.x * maxDist,
+            camPos.y + camFwd.y * maxDist,
+            camPos.z + camFwd.z * maxDist
+        };
+
+        // Use physics raycast for accurate endpoint
+        if (m_editorState.physicsCollisionEnabled) {
+            auto hit = m_physicsWorld.Raycast(camPos, camFwd, maxDist);
+            if (hit.hit) {
+                laserEnd = {
+                    camPos.x + camFwd.x * hit.depth,
+                    camPos.y + camFwd.y * hit.depth,
+                    camPos.z + camFwd.z * hit.depth
+                };
+            }
+        }
+
+        XMFLOAT4 laserColor = {
+            m_editorState.weaponLaserColor[0],
+            m_editorState.weaponLaserColor[1],
+            m_editorState.weaponLaserColor[2],
+            1.0f
+        };
+
+        // Draw laser beam from barrel tip to hit point
+        m_debugRenderer.DrawLine(barrelTip, laserEnd, laserColor);
+
+        // Draw laser dot at endpoint (cross pattern)
+        float dotSize = 0.04f;
+        m_debugRenderer.DrawLine(
+            { laserEnd.x - dotSize, laserEnd.y, laserEnd.z },
+            { laserEnd.x + dotSize, laserEnd.y, laserEnd.z },
+            laserColor);
+        m_debugRenderer.DrawLine(
+            { laserEnd.x, laserEnd.y - dotSize, laserEnd.z },
+            { laserEnd.x, laserEnd.y + dotSize, laserEnd.z },
+            laserColor);
+        m_debugRenderer.DrawLine(
+            { laserEnd.x, laserEnd.y, laserEnd.z - dotSize },
+            { laserEnd.x, laserEnd.y, laserEnd.z + dotSize },
+            laserColor);
+
+        // Flush laser lines immediately, then restore debug renderer state
+        m_debugRenderer.Flush(ctx);
+        m_debugRenderer.SetEnabled(wasEnabled);
+    }
+
     // ---- Debug Rendering ----
     if (m_editorState.showDebug) {
         m_debugRenderer.DrawGrid(20.0f, 20, { 0.4f, 0.4f, 0.4f, 0.5f });
@@ -1752,13 +2163,20 @@ void Application::Render() {
                                  { 0.5f * m_editorState.cubeScale[0], 0.5f * m_editorState.cubeScale[1], 0.5f * m_editorState.cubeScale[2] },
                                  { 1.0f, 1.0f, 0.0f, 0.6f });
 
-        // Draw selection box for selected entity
+        // Draw selection box for selected entity (oriented to match rotation)
         int sel = m_editorState.selectedEntity;
         if (sel >= 0 && sel < m_editorState.scene.GetEntityCount()) {
             const auto& e = m_editorState.scene.GetEntity(sel);
-            m_debugRenderer.DrawBox(
+            XMMATRIX R = XMMatrixRotationRollPitchYaw(
+                XMConvertToRadians(e.rotation[0]),
+                XMConvertToRadians(e.rotation[1]),
+                XMConvertToRadians(e.rotation[2]));
+            XMFLOAT3X3 rotMat;
+            XMStoreFloat3x3(&rotMat, R);
+            m_debugRenderer.DrawRotatedBox(
                 { e.position[0], e.position[1], e.position[2] },
                 { 0.5f * e.scale[0], 0.5f * e.scale[1], 0.5f * e.scale[2] },
+                rotMat,
                 { 0.2f, 0.8f, 1.0f, 0.8f });
         }
 
@@ -1777,48 +2195,6 @@ void Application::Render() {
         m_weaponSystem.DebugDraw(m_debugRenderer);
     }
 
-    // ---- Draw AI Agents as colored cubes ----
-    {
-        m_voxelShader.Bind(ctx);
-        for (int i = 0; i < m_aiSystem.GetAgentCount(); i++) {
-            const auto& agent = m_aiSystem.GetAgent(i);
-            if (!agent.visible || !agent.active) continue;
-
-            float halfScale = agent.settings.bodyScale * 0.5f;
-            XMMATRIX agentScale = XMMatrixScaling(agent.settings.bodyScale,
-                                                   agent.settings.bodyScale,
-                                                   agent.settings.bodyScale);
-            XMMATRIX agentRot   = XMMatrixRotationY(XMConvertToRadians(agent.yaw));
-            XMMATRIX agentTrans = XMMatrixTranslation(agent.position.x,
-                                                       agent.position.y + halfScale,
-                                                       agent.position.z);
-            XMMATRIX agentWorld = agentScale * agentRot * agentTrans;
-
-            CBPerObject agentObj = {};
-            XMStoreFloat4x4(&agentObj.World, XMMatrixTranspose(agentWorld));
-            XMStoreFloat4x4(&agentObj.WorldInvTranspose, XMMatrixInverse(nullptr, agentWorld));
-
-            // Flash white when taking damage
-            if (agent.damageFlashTimer > 0.0f) {
-                agentObj.ObjectColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-            } else {
-                agentObj.ObjectColor = { agent.settings.bodyColor[0],
-                                         agent.settings.bodyColor[1],
-                                         agent.settings.bodyColor[2],
-                                         agent.settings.bodyColor[3] };
-            }
-            m_cbPerObject.Update(ctx, agentObj);
-            m_cbPerObject.BindBoth(ctx, 1);
-            m_cubeMesh.Draw(ctx);
-            m_renderer.TrackDrawCall(m_cubeMesh.GetIndexCount());
-        }
-
-        // Reset ObjectColor
-        objData.ObjectColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-        m_cbPerObject.Update(ctx, objData);
-        m_cbPerObject.BindBoth(ctx, 1);
-    }
-
     m_debugRenderer.Flush(ctx);
 
     // ---- Editor ImGui ----
@@ -1829,14 +2205,14 @@ void Application::Render() {
 
         // Draw HUD overlay (inside ImGui frame) when in character mode
         if (m_characterMode) {
-            m_hud.Draw(m_weaponSystem, m_width, m_height);
+            m_hud.Draw(m_weaponSystem, m_character, m_camera.GetYaw(), m_width, m_height);
         }
 
         m_editorUI.EndFrame();
     } else if (m_characterMode) {
         // Editor hidden but we still need ImGui for HUD
         m_editorUI.BeginFrame();
-        m_hud.Draw(m_weaponSystem, m_width, m_height);
+        m_hud.Draw(m_weaponSystem, m_character, m_camera.GetYaw(), m_width, m_height);
         m_editorUI.EndFrame();
     }
 
@@ -1862,6 +2238,7 @@ void Application::Shutdown() {
     m_shadowMap.Shutdown();
     m_defaultWhite.Release();
     m_groundMesh.Release();
+    m_sphereMesh.Release();
     m_cubeMesh.Release();
     m_renderer.Shutdown();
     if (m_hwnd) {

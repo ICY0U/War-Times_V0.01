@@ -47,6 +47,23 @@ inline const char* MaterialTypeName(MaterialType type) {
     }
 }
 
+// ---- Pickup type — items the player can collect ----
+enum class PickupType : uint8_t {
+    None = 0,       // Not a pickup (normal entity)
+    Health,         // Restores player health
+    Ammo,           // Adds reserve ammo
+    Count
+};
+
+inline const char* PickupTypeName(PickupType type) {
+    switch (type) {
+        case PickupType::None:   return "None";
+        case PickupType::Health: return "Health";
+        case PickupType::Ammo:   return "Ammo";
+        default:                 return "Unknown";
+    }
+}
+
 // ---- Entity — a spawnable scene object ----
 struct Entity {
     std::string name       = "Entity";
@@ -91,6 +108,17 @@ struct Entity {
     // Debris properties
     bool        noCollision  = false;    // Skip collision (debris pieces)
     float       despawnTimer = -1.0f;    // Time until auto-remove (-1 = never)
+
+    // Pickup system
+    PickupType  pickupType   = PickupType::None;  // What this entity gives when collected
+    float       pickupAmount = 25.0f;              // Health restored or ammo added
+    float       pickupRadius = 1.5f;               // Auto-collect radius
+    float       pickupBobSpeed = 2.0f;             // Bobbing animation speed
+    float       pickupBobHeight = 0.15f;           // Bobbing amplitude
+    float       pickupSpinSpeed = 90.0f;           // Spin degrees/sec
+    float       pickupRespawnTime = 15.0f;         // Seconds until respawn (-1 = no respawn)
+    float       pickupRespawnTimer = 0.0f;         // Current respawn countdown
+    bool        pickupCollected = false;           // Currently collected (waiting for respawn)
 
     // Hit decals (bullet scars) — up to 4 world-space positions tracked
     static constexpr int MAX_HIT_DECALS = 4;

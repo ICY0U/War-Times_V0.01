@@ -183,12 +183,73 @@ std::vector<XMFLOAT3> NavGrid::FindPathWorld(const XMFLOAT3& startPos, const XMF
 
     auto gridPath = FindPath(startGrid, goalGrid, allowDiagonal);
 
+    // Smooth the grid path to remove unnecessary zigzags
+    auto smoothed = SmoothPath(gridPath);
+
     std::vector<XMFLOAT3> worldPath;
-    worldPath.reserve(gridPath.size());
-    for (const auto& gc : gridPath) {
+    worldPath.reserve(smoothed.size());
+    for (const auto& gc : smoothed) {
         worldPath.push_back(GridToWorld(gc.x, gc.z));
     }
     return worldPath;
+}
+
+// ==================== Grid Line of Sight (Bresenham) ====================
+
+bool NavGrid::HasGridLOS(NavCoord from, NavCoord to) const {
+    // Bresenham's line algorithm — checks all cells along the line are walkable
+    int x0 = from.x, z0 = from.z;
+    int x1 = to.x,   z1 = to.z;
+    int dx = std::abs(x1 - x0);
+    int dz = std::abs(z1 - z0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sz = (z0 < z1) ? 1 : -1;
+    int err = dx - dz;
+
+    while (true) {
+        if (!IsWalkable(x0, z0)) return false;
+        if (x0 == x1 && z0 == z1) break;
+        int e2 = 2 * err;
+        // Check diagonal neighbors to prevent corner cutting
+        if (e2 > -dz && e2 < dx) {
+            // Diagonal step — check both adjacent cells
+            if (!IsWalkable(x0 + sx, z0) || !IsWalkable(x0, z0 + sz))
+                return false;
+        }
+        if (e2 > -dz) { err -= dz; x0 += sx; }
+        if (e2 < dx)  { err += dx; z0 += sz; }
+    }
+    return true;
+}
+
+bool NavGrid::HasGridLOS(const XMFLOAT3& fromWorld, const XMFLOAT3& toWorld) const {
+    return HasGridLOS(WorldToGrid(fromWorld.x, fromWorld.z),
+                      WorldToGrid(toWorld.x, toWorld.z));
+}
+
+// ==================== Path Smoothing ====================
+
+std::vector<NavCoord> NavGrid::SmoothPath(const std::vector<NavCoord>& path) const {
+    if (path.size() <= 2) return path;
+
+    std::vector<NavCoord> smoothed;
+    smoothed.push_back(path.front());
+
+    size_t current = 0;
+    while (current < path.size() - 1) {
+        // Try to skip as far ahead as possible while maintaining grid LOS
+        size_t farthest = current + 1;
+        for (size_t test = path.size() - 1; test > current + 1; test--) {
+            if (HasGridLOS(path[current], path[test])) {
+                farthest = test;
+                break;
+            }
+        }
+        smoothed.push_back(path[farthest]);
+        current = farthest;
+    }
+
+    return smoothed;
 }
 
 // ==================== Obstacle Placement ====================
@@ -217,11 +278,75 @@ void NavGrid::RebuildFromEntities(const Scene& scene) {
     ClearGrid();
     for (int i = 0; i < scene.GetEntityCount(); i++) {
         const auto& e = scene.GetEntity(i);
-        if (!e.visible) continue;
-        // Treat entity as axis-aligned box at its position with half-extents = scale/2
+        if (!e.visible || e.noCollision) continue;
+        // Skip pickup entities — they don't block navigation
+        if (e.pickupType != PickupType::None) continue;
+
         XMFLOAT3 center = { e.position[0], e.position[1], e.position[2] };
         XMFLOAT3 halfExt = { e.scale[0] * 0.5f, e.scale[1] * 0.5f, e.scale[2] * 0.5f };
-        BlockBox(center, halfExt);
+
+        bool hasRotation = (e.rotation[0] != 0.0f || e.rotation[1] != 0.0f || e.rotation[2] != 0.0f);
+        if (!hasRotation) {
+            // Fast path: axis-aligned
+            BlockBox(center, halfExt);
+        } else {
+            // Rotated entity: transform 4 XZ corners through rotation, then find AABB
+            XMMATRIX R = XMMatrixRotationRollPitchYaw(
+                XMConvertToRadians(e.rotation[0]),
+                XMConvertToRadians(e.rotation[1]),
+                XMConvertToRadians(e.rotation[2]));
+
+            // 4 corner offsets in local space (XZ plane)
+            XMFLOAT3 localCorners[4] = {
+                { -halfExt.x, 0, -halfExt.z },
+                {  halfExt.x, 0, -halfExt.z },
+                {  halfExt.x, 0,  halfExt.z },
+                { -halfExt.x, 0,  halfExt.z },
+            };
+
+            float minX = FLT_MAX, maxX = -FLT_MAX;
+            float minZ = FLT_MAX, maxZ = -FLT_MAX;
+            for (int c = 0; c < 4; c++) {
+                XMVECTOR v = XMVector3TransformNormal(XMLoadFloat3(&localCorners[c]), R);
+                XMFLOAT3 rc;
+                XMStoreFloat3(&rc, v);
+                float wx = center.x + rc.x;
+                float wz = center.z + rc.z;
+                minX = (std::min)(minX, wx);
+                maxX = (std::max)(maxX, wx);
+                minZ = (std::min)(minZ, wz);
+                maxZ = (std::max)(maxZ, wz);
+            }
+
+            // Block all cells in the rotated bounding rectangle
+            // For more accurate blocking, test each cell center against the OBB
+            NavCoord c0 = WorldToGrid(minX, minZ);
+            NavCoord c1 = WorldToGrid(maxX, maxZ);
+
+            // Rotation axes for OBB point-test (XZ plane only)
+            XMFLOAT3X3 rotMat;
+            XMStoreFloat3x3(&rotMat, R);
+            // Local X axis in world space
+            float axU_x = rotMat._11, axU_z = rotMat._13;
+            // Local Z axis in world space
+            float axV_x = rotMat._31, axV_z = rotMat._33;
+
+            for (int z = c0.z; z <= c1.z; z++) {
+                for (int x = c0.x; x <= c1.x; x++) {
+                    XMFLOAT3 cellWorld = GridToWorld(x, z);
+                    // Project cell center onto OBB local axes
+                    float dx = cellWorld.x - center.x;
+                    float dz = cellWorld.z - center.z;
+                    float projU = dx * axU_x + dz * axU_z;
+                    float projV = dx * axV_x + dz * axV_z;
+                    // Test if within half-extents (with cell-size padding)
+                    float pad = m_cellSize * 0.5f;
+                    if (std::abs(projU) <= halfExt.x + pad && std::abs(projV) <= halfExt.z + pad) {
+                        SetCell(x, z, NavCellState::Blocked);
+                    }
+                }
+            }
+        }
     }
 }
 

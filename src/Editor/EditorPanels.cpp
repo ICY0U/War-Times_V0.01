@@ -241,6 +241,8 @@ void EditorPanels::DrawOutliner(EditorState& state, Renderer& renderer, Camera& 
     SectionAI(state);
     SectionWeapon(state);
     SectionLevel(state);
+    SectionDayNight(state);
+    SectionWeather(state);
     SectionCamera(state, camera);
     SectionCulling(state);
     SectionRenderer(state, renderer);
@@ -468,6 +470,30 @@ void EditorPanels::SectionEntities(EditorState& state) {
     }
     ImGui::SameLine();
 
+    // Medpack spawn
+    if (ImGui::Button("+ Medpack", ImVec2(75, 0))) {
+        int idx = scene.AddEntity("Medpack_" + std::to_string(scene.GetEntityCount()), MeshType::Cube);
+        auto& e = scene.GetEntity(idx);
+        e.color[0] = 0.1f; e.color[1] = 0.9f; e.color[2] = 0.2f; e.color[3] = 1.0f;
+        e.scale[0] = 0.4f; e.scale[1] = 0.25f; e.scale[2] = 0.3f;
+        e.pickupType = PickupType::Health;
+        e.pickupAmount = 25.0f;
+        state.selectedEntity = idx;
+    }
+    ImGui::SameLine();
+
+    // Ammo spawn
+    if (ImGui::Button("+ Ammo", ImVec2(65, 0))) {
+        int idx = scene.AddEntity("AmmoPack_" + std::to_string(scene.GetEntityCount()), MeshType::Cube);
+        auto& e = scene.GetEntity(idx);
+        e.color[0] = 0.9f; e.color[1] = 0.7f; e.color[2] = 0.1f; e.color[3] = 1.0f;
+        e.scale[0] = 0.3f; e.scale[1] = 0.2f; e.scale[2] = 0.25f;
+        e.pickupType = PickupType::Ammo;
+        e.pickupAmount = 30.0f;
+        state.selectedEntity = idx;
+    }
+    ImGui::SameLine();
+
     // Model spawn dropdown
     auto modelNames = ResourceManager::Get().GetModelNames();
     if (!modelNames.empty()) {
@@ -600,6 +626,35 @@ void EditorPanels::SectionEntities(EditorState& state) {
         ImGui::SameLine();
         PropertyLabel("Shadow");
         ImGui::Checkbox("##entshd", &e.castShadow);
+
+        // ---- Pickup Properties ----
+        SectionSeparator();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 1.0f, 0.5f, 1.0f));
+        ImGui::Text("  Pickup");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        PropertyLabel("Pickup Type");
+        int pt = static_cast<int>(e.pickupType);
+        const char* pickupNames[] = { "None", "Health", "Ammo" };
+        if (ImGui::Combo("##entpickup", &pt, pickupNames, 3)) {
+            e.pickupType = static_cast<PickupType>(pt);
+        }
+
+        if (e.pickupType != PickupType::None) {
+            PropertyLabel("Amount");
+            ImGui::DragFloat("##pickamt", &e.pickupAmount, 1.0f, 1.0f, 200.0f, "%.0f");
+            PropertyLabel("Radius");
+            ImGui::DragFloat("##pickrad", &e.pickupRadius, 0.1f, 0.5f, 10.0f, "%.1f");
+            PropertyLabel("Bob Speed");
+            ImGui::DragFloat("##pickbob", &e.pickupBobSpeed, 0.1f, 0.0f, 10.0f, "%.1f");
+            PropertyLabel("Bob Height");
+            ImGui::DragFloat("##pickbobh", &e.pickupBobHeight, 0.01f, 0.0f, 1.0f, "%.2f");
+            PropertyLabel("Spin Speed");
+            ImGui::DragFloat("##pickspin", &e.pickupSpinSpeed, 1.0f, 0.0f, 360.0f, "%.0f deg/s");
+            PropertyLabel("Respawn Time");
+            ImGui::DragFloat("##pickrespawn", &e.pickupRespawnTime, 0.5f, 0.0f, 120.0f, "%.1f s");
+        }
 
         // ---- Destruction Properties ----
         SectionSeparator();
@@ -1055,6 +1110,27 @@ void EditorPanels::SectionCharacter(EditorState& state) {
 
         SectionSeparator();
 
+        // Peek / Lean
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 1.0f, 1.0f));
+        ImGui::Text("  Peek / Lean");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        PropertyLabel("Enabled");
+        ImGui::Checkbox("##leanena", &state.charLeanEnabled);
+        if (state.charLeanEnabled) {
+            PropertyLabel("Angle");
+            ImGui::DragFloat("##leanang", &state.charLeanAngle, 0.5f, 1.0f, 45.0f, "%.1f deg");
+            PropertyLabel("Offset");
+            ImGui::DragFloat("##leanoff", &state.charLeanOffset, 0.05f, 0.0f, 2.0f, "%.2f");
+            PropertyLabel("Speed");
+            ImGui::DragFloat("##leanspd", &state.charLeanSpeed, 0.5f, 1.0f, 20.0f);
+            ImGui::Spacing();
+            ImGui::TextDisabled("Q / E to lean");
+        }
+
+        SectionSeparator();
+
         // Body Colors
         ImGui::PushStyleColor(ImGuiCol_Text, kAccentDim);
         ImGui::Text("  Body Colors");
@@ -1165,6 +1241,9 @@ void EditorPanels::SectionAI(EditorState& state) {
     PropertyLabel("Show Debug");
     ImGui::Checkbox("##aidebug", &state.aiShowDebug);
 
+    PropertyLabel("X-Ray Agents");
+    ImGui::Checkbox("##aixray", &state.aiXRayAgents);
+
     SectionSeparator();
 
     // Spawn settings
@@ -1175,6 +1254,8 @@ void EditorPanels::SectionAI(EditorState& state) {
 
     PropertyLabel("Spawn Pos");
     ImGui::DragFloat3("##aispawnpos", state.aiSpawnPos, 0.5f);
+    PropertyLabel("Agent Type");
+    ImGui::Combo("##aitype", &state.aiDefaultType, "Ground\0Drone\0");
     PropertyLabel("Move Speed");
     ImGui::DragFloat("##aidefspd", &state.aiDefaultSpeed, 0.1f, 0.5f, 20.0f);
     PropertyLabel("Chase Speed");
@@ -1186,8 +1267,13 @@ void EditorPanels::SectionAI(EditorState& state) {
     PropertyLabel("Color");
     ImGui::ColorEdit3("##aicolor", state.aiDefaultColor, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
 
-    if (ImGui::Button("Spawn Agent", ImVec2(-1, 0))) {
+    if (ImGui::Button("Spawn Ground Agent", ImVec2(-1, 0))) {
+        state.aiDefaultType = 0;
         state.aiSelectedAgent = -2;  // Signal to Application to spawn
+    }
+    if (ImGui::Button("Spawn Drone", ImVec2(-1, 0))) {
+        state.aiDefaultType = 1;
+        state.aiSelectedAgent = -2;
     }
 
     EndSection();
@@ -1309,6 +1395,23 @@ void EditorPanels::SectionWeapon(EditorState& state) {
     ImGui::TextWrapped("LMB: Fire | RMB: ADS");
     ImGui::TextWrapped("R: Reload | 1/2/3: Switch");
 
+    SectionSeparator();
+
+    // Laser Sight
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+    ImGui::Text("  Laser Sight");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    PropertyLabel("Enabled");
+    ImGui::Checkbox("##laserena", &state.weaponLaserEnabled);
+    if (state.weaponLaserEnabled) {
+        PropertyLabel("Color");
+        ImGui::ColorEdit3("##lasercol", state.weaponLaserColor, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        PropertyLabel("Max Dist");
+        ImGui::DragFloat("##laserdist", &state.weaponLaserMaxDist, 1.0f, 10.0f, 500.0f, "%.0f");
+    }
+
     EndSection();
 }
 
@@ -1377,6 +1480,85 @@ void EditorPanels::SectionCulling(EditorState& state) {
 
     PropertyLabel("Shadow Distance");
     ImGui::DragFloat("##shadowCullDist", &state.shadowCullDistance, 1.0f, 20.0f, 500.0f, "%.0f");
+
+    EndSection();
+}
+
+// ==================== DAY/NIGHT CYCLE ====================
+void EditorPanels::SectionDayNight(EditorState& state) {
+    if (!BeginSection("SUN", "Day / Night Cycle", false)) return;
+
+    PropertyLabel("Enabled");
+    ImGui::Checkbox("##dnenabled", &state.dayNightEnabled);
+
+    if (state.dayNightEnabled) {
+        PropertyLabel("Time of Day");
+        ImGui::SliderFloat("##dntime", &state.timeOfDay, 0.0f, 24.0f, "%.1f h");
+
+        // Time display
+        int hour = (int)state.timeOfDay;
+        int minute = (int)((state.timeOfDay - hour) * 60.0f);
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+        ImGui::Text("%02d:%02d", hour, minute);
+        ImGui::PopStyleColor();
+
+        PropertyLabel("Speed");
+        ImGui::DragFloat("##dnspeed", &state.daySpeed, 0.1f, 0.0f, 60.0f, "%.1f");
+        ImGui::SameLine();
+        ImGui::TextDisabled("h/min");
+
+        PropertyLabel("Paused");
+        ImGui::Checkbox("##dnpaused", &state.dayNightPaused);
+
+        PropertyLabel("Sun Azimuth");
+        ImGui::DragFloat("##dnazimuth", &state.sunAzimuth, 1.0f, 0.0f, 360.0f, "%.0f deg");
+
+        SectionSeparator();
+
+        // Time of day quick presets
+        ImGui::PushStyleColor(ImGuiCol_Text, kAccentDim);
+        ImGui::Text("  Quick Presets");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        if (ImGui::Button("Dawn",  ImVec2(55, 0))) { state.timeOfDay = 5.5f; }
+        ImGui::SameLine();
+        if (ImGui::Button("Morning", ImVec2(60, 0))) { state.timeOfDay = 8.0f; }
+        ImGui::SameLine();
+        if (ImGui::Button("Noon", ImVec2(45, 0))) { state.timeOfDay = 12.0f; }
+        ImGui::SameLine();
+        if (ImGui::Button("Evening", ImVec2(55, 0))) { state.timeOfDay = 18.0f; }
+
+        if (ImGui::Button("Sunset", ImVec2(55, 0))) { state.timeOfDay = 19.5f; }
+        ImGui::SameLine();
+        if (ImGui::Button("Dusk", ImVec2(45, 0))) { state.timeOfDay = 20.5f; }
+        ImGui::SameLine();
+        if (ImGui::Button("Night", ImVec2(45, 0))) { state.timeOfDay = 0.0f; }
+    }
+
+    EndSection();
+}
+
+// ==================== WEATHER ====================
+void EditorPanels::SectionWeather(EditorState& state) {
+    if (!BeginSection("WTH", "Weather", false)) return;
+
+    PropertyLabel("Weather");
+    const char* weatherNames[] = { "Clear", "Cloudy", "Overcast", "Foggy", "Rainy" };
+    ImGui::Combo("##weathertype", &state.weatherType, weatherNames, 5);
+
+    SectionSeparator();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, kAccentDim);
+    ImGui::Text("  Wind");
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    PropertyLabel("Direction");
+    ImGui::DragFloat("##winddir", &state.windDirection, 1.0f, 0.0f, 360.0f, "%.0f deg");
+    PropertyLabel("Speed");
+    ImGui::DragFloat("##windspd", &state.windSpeed, 0.1f, 0.0f, 5.0f, "%.1f");
 
     EndSection();
 }

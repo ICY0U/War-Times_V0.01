@@ -370,7 +370,12 @@ void WeaponSystem::Fire(Camera& camera, PhysicsWorld* physics, AISystem* aiSyste
     // Apply damage to hit agents
     if (m_lastHit.hit && m_lastHit.agentIndex >= 0 && aiSystem) {
         auto& agent = aiSystem->GetAgent(m_lastHit.agentIndex);
-        bool killed = agent.TakeDamage(def.damage * def.pelletsPerShot);
+        float dmg = def.damage * def.pelletsPerShot;
+        if (m_lastHit.isHeadshot) {
+            dmg *= 2.0f;  // Headshot = 2x damage
+            LOG_INFO("HEADSHOT on '%s'!", agent.name.c_str());
+        }
+        bool killed = agent.TakeDamage(dmg);
         m_hitMarkerTimer = m_settings.hitMarkerDuration;
         if (killed) {
             LOG_INFO("Agent '%s' eliminated!", agent.name.c_str());
@@ -423,63 +428,151 @@ WeaponHitResult WeaponSystem::DoRaycast(const XMFLOAT3& origin, const XMFLOAT3& 
             const auto& agent = aiSystem->GetAgent(i);
             if (!agent.active || !agent.visible) continue;
 
-            // Build agent AABB
-            float halfScale = agent.settings.bodyScale * 0.5f;
-            AABB agentBox = AABB::FromCenterHalf(
-                { agent.position.x, agent.position.y + halfScale, agent.position.z },
-                { halfScale, halfScale, halfScale }
-            );
+            float bs = agent.settings.bodyScale;
+            bool hitAgent = false;
+            float hitT = closestDist;
+            bool headshot = false;
 
-            // Ray-AABB intersection (slab method)
-            float tMin = 0.0f;
-            float tMax = closestDist;
+            if (agent.type == AIAgentType::Ground) {
+                // Ground agent: torso AABB + head sphere
+                float bodyW = bs * 0.7f;
+                float bodyH = bs * 1.0f;
+                float bodyD = bs * 0.5f;
+                float headR = bs * 0.35f;
 
-            float t1 = (agentBox.min.x - origin.x) * invDir.x;
-            float t2 = (agentBox.max.x - origin.x) * invDir.x;
-            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-            tMin = (t1 > tMin) ? t1 : tMin;
-            tMax = (t2 < tMax) ? t2 : tMax;
-            if (tMin > tMax) continue;
+                // ---- Head sphere test (check first for priority) ----
+                XMFLOAT3 headCenter = { agent.position.x,
+                                        agent.position.y + bodyH + headR,
+                                        agent.position.z };
+                // Ray-sphere intersection
+                float ocx = origin.x - headCenter.x;
+                float ocy = origin.y - headCenter.y;
+                float ocz = origin.z - headCenter.z;
+                float a = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+                float b = 2.0f * (ocx * direction.x + ocy * direction.y + ocz * direction.z);
+                float c = ocx * ocx + ocy * ocy + ocz * ocz - headR * headR;
+                float disc = b * b - 4.0f * a * c;
+                if (disc >= 0.0f) {
+                    float sqrtDisc = sqrtf(disc);
+                    float t0 = (-b - sqrtDisc) / (2.0f * a);
+                    float t1 = (-b + sqrtDisc) / (2.0f * a);
+                    float tHead = (t0 > 0.0f) ? t0 : t1;
+                    if (tHead > 0.0f && tHead < hitT) {
+                        hitT = tHead;
+                        hitAgent = true;
+                        headshot = true;
+                    }
+                }
 
-            t1 = (agentBox.min.y - origin.y) * invDir.y;
-            t2 = (agentBox.max.y - origin.y) * invDir.y;
-            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-            tMin = (t1 > tMin) ? t1 : tMin;
-            tMax = (t2 < tMax) ? t2 : tMax;
-            if (tMin > tMax) continue;
+                // ---- Torso AABB test ----
+                AABB torsoBox = AABB::FromCenterHalf(
+                    { agent.position.x, agent.position.y + bodyH * 0.5f, agent.position.z },
+                    { bodyW * 0.5f, bodyH * 0.5f, bodyD * 0.5f }
+                );
 
-            t1 = (agentBox.min.z - origin.z) * invDir.z;
-            t2 = (agentBox.max.z - origin.z) * invDir.z;
-            if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-            tMin = (t1 > tMin) ? t1 : tMin;
-            tMax = (t2 < tMax) ? t2 : tMax;
-            if (tMin > tMax) continue;
+                float tMin = 0.0f;
+                float tMax = hitT; // Only closer than current best
 
-            if (tMin > 0.0f && tMin < closestDist) {
-                closestDist = tMin;
+                float t1x = (torsoBox.min.x - origin.x) * invDir.x;
+                float t2x = (torsoBox.max.x - origin.x) * invDir.x;
+                if (t1x > t2x) { float tmp = t1x; t1x = t2x; t2x = tmp; }
+                tMin = (t1x > tMin) ? t1x : tMin;
+                tMax = (t2x < tMax) ? t2x : tMax;
+                bool torsoHit = (tMin <= tMax);
+
+                if (torsoHit) {
+                    float t1y = (torsoBox.min.y - origin.y) * invDir.y;
+                    float t2y = (torsoBox.max.y - origin.y) * invDir.y;
+                    if (t1y > t2y) { float tmp = t1y; t1y = t2y; t2y = tmp; }
+                    tMin = (t1y > tMin) ? t1y : tMin;
+                    tMax = (t2y < tMax) ? t2y : tMax;
+                    torsoHit = (tMin <= tMax);
+                }
+                if (torsoHit) {
+                    float t1z = (torsoBox.min.z - origin.z) * invDir.z;
+                    float t2z = (torsoBox.max.z - origin.z) * invDir.z;
+                    if (t1z > t2z) { float tmp = t1z; t1z = t2z; t2z = tmp; }
+                    tMin = (t1z > tMin) ? t1z : tMin;
+                    tMax = (t2z < tMax) ? t2z : tMax;
+                    torsoHit = (tMin <= tMax);
+                }
+
+                if (torsoHit && tMin > 0.0f && tMin < hitT) {
+                    hitT = tMin;
+                    hitAgent = true;
+                    headshot = false; // Torso is closer, override headshot
+                }
+            } else {
+                // Drone: sphere hitbox
+                float ocx = origin.x - agent.position.x;
+                float ocy = origin.y - agent.position.y;
+                float ocz = origin.z - agent.position.z;
+                float halfScale = bs * 0.5f;
+                float a = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+                float b = 2.0f * (ocx * direction.x + ocy * direction.y + ocz * direction.z);
+                float c = ocx * ocx + ocy * ocy + ocz * ocz - halfScale * halfScale;
+                float disc = b * b - 4.0f * a * c;
+                if (disc >= 0.0f) {
+                    float sqrtDisc = sqrtf(disc);
+                    float t0 = (-b - sqrtDisc) / (2.0f * a);
+                    float t1 = (-b + sqrtDisc) / (2.0f * a);
+                    float tSphere = (t0 > 0.0f) ? t0 : t1;
+                    if (tSphere > 0.0f && tSphere < hitT) {
+                        hitT = tSphere;
+                        hitAgent = true;
+                    }
+                }
+            }
+
+            if (hitAgent && hitT < closestDist) {
+                closestDist = hitT;
                 result.hit = true;
-                result.distance = tMin;
+                result.distance = hitT;
                 result.agentIndex = i;
                 result.entityIndex = -1;
+                result.isHeadshot = headshot;
                 result.hitPosition = {
-                    origin.x + direction.x * tMin,
-                    origin.y + direction.y * tMin,
-                    origin.z + direction.z * tMin
+                    origin.x + direction.x * hitT,
+                    origin.y + direction.y * hitT,
+                    origin.z + direction.z * hitT
                 };
 
-                // Compute hit normal
-                XMFLOAT3 center = agentBox.Center();
-                XMFLOAT3 half = agentBox.HalfExtents();
-                float dx = (result.hitPosition.x - center.x) / half.x;
-                float dy = (result.hitPosition.y - center.y) / half.y;
-                float dz = (result.hitPosition.z - center.z) / half.z;
-                float ax = fabsf(dx), ay = fabsf(dy), az = fabsf(dz);
-                if (ax > ay && ax > az)
-                    result.hitNormal = { dx > 0 ? 1.0f : -1.0f, 0, 0 };
-                else if (ay > az)
-                    result.hitNormal = { 0, dy > 0 ? 1.0f : -1.0f, 0 };
-                else
-                    result.hitNormal = { 0, 0, dz > 0 ? 1.0f : -1.0f };
+                // Compute hit normal (approximate from sphere/box surface)
+                if (headshot) {
+                    float headCY = agent.position.y + bs * 1.0f + bs * 0.35f;
+                    float nx = result.hitPosition.x - agent.position.x;
+                    float ny = result.hitPosition.y - headCY;
+                    float nz = result.hitPosition.z - agent.position.z;
+                    float len = sqrtf(nx * nx + ny * ny + nz * nz);
+                    if (len > 0.001f) {
+                        result.hitNormal = { nx / len, ny / len, nz / len };
+                    }
+                } else if (agent.type == AIAgentType::Drone) {
+                    float nx = result.hitPosition.x - agent.position.x;
+                    float ny = result.hitPosition.y - agent.position.y;
+                    float nz = result.hitPosition.z - agent.position.z;
+                    float len = sqrtf(nx * nx + ny * ny + nz * nz);
+                    if (len > 0.001f) {
+                        result.hitNormal = { nx / len, ny / len, nz / len };
+                    }
+                } else {
+                    // Torso AABB normal
+                    float bodyW = bs * 0.7f;
+                    float bodyH = bs * 1.0f;
+                    float bodyD = bs * 0.5f;
+                    XMFLOAT3 center = { agent.position.x, agent.position.y + bodyH * 0.5f, agent.position.z };
+                    XMFLOAT3 half = { bodyW * 0.5f, bodyH * 0.5f, bodyD * 0.5f };
+                    float dx = (result.hitPosition.x - center.x) / half.x;
+                    float dy = (result.hitPosition.y - center.y) / half.y;
+                    float dz = (result.hitPosition.z - center.z) / half.z;
+                    float ax = fabsf(dx), ay = fabsf(dy), az = fabsf(dz);
+                    if (ax > ay && ax > az)
+                        result.hitNormal = { dx > 0 ? 1.0f : -1.0f, 0, 0 };
+                    else if (ay > az)
+                        result.hitNormal = { 0, dy > 0 ? 1.0f : -1.0f, 0 };
+                    else
+                        result.hitNormal = { 0, 0, dz > 0 ? 1.0f : -1.0f };
+                }
             }
         }
     }

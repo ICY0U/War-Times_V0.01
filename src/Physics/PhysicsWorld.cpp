@@ -64,6 +64,9 @@ void PhysicsWorld::RebuildStaticColliders(const Scene& scene) {
         const auto& e = entities[i];
         if (!e.visible || e.noCollision) continue;
 
+        // Skip pickup entities — they use proximity radius, not solid collision
+        if (e.pickupType != PickupType::None) continue;
+
         // Voxel entities: create a separate collider for each active cell
         if (e.voxelDestruction && e.meshType == MeshType::Cube) {
             int res = e.voxelRes;

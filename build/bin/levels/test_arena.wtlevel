@@ -1,6 +1,6 @@
 # War Times Level File
 # Version 1
-entity_count = 35
+entity_count = 39
 
 [entity]
 name = Wall_North
@@ -22,6 +22,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Wall_South
@@ -43,6 +50,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Wall_East
@@ -64,6 +78,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Wall_West
@@ -85,6 +106,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingA_FloorWall_S
@@ -106,6 +134,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingA_FloorWall_N
@@ -127,6 +162,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingA_FloorWall_W
@@ -148,6 +190,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingA_FloorWall_E
@@ -169,6 +218,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingA_Roof
@@ -190,6 +246,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingB_Wall_N
@@ -211,6 +274,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingB_Wall_S
@@ -232,6 +302,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingB_Wall_W
@@ -253,6 +330,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingB_Wall_E
@@ -274,6 +358,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = BuildingB_Roof
@@ -295,6 +386,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Crate_01
@@ -316,6 +414,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Crate_02
@@ -337,6 +442,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Crate_03
@@ -358,13 +470,20 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Wall_Center
 mesh_type = 0
 mesh_name = 
 texture_name = Walls/texture
-position = 3 1 7.1
+position = 3 1 9
 rotation = 0 30 0
 scale = 4 2 0.4
 color = 0.55 0.52 0.45 1
@@ -379,13 +498,20 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Barrel_01
 mesh_type = 0
 mesh_name = 
 texture_name = Props/texture
-position = 4.7 0.6 5
+position = 4.7 0.6 7.09517
 rotation = 0 0 0
 scale = 0.6 1.2 0.6
 color = 0.3 0.35 0.3 1
@@ -400,13 +526,20 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Barrel_02
 mesh_type = 0
 mesh_name = 
 texture_name = Props/texture
-position = 5.8 0.6 4.9
+position = 5.8 0.6 6.85481
 rotation = 0 0 0
 scale = 0.6 1.2 0.6
 color = 0.35 0.3 0.25 1
@@ -421,13 +554,20 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Cover_Barrel_03
 mesh_type = 0
 mesh_name = 
 texture_name = Props/texture
-position = 5.23446 0.6 5.7
+position = 5.23555 0.6 8
 rotation = 0 0 0
 scale = 0.6 1.2 0.6
 color = 0.28 0.32 0.28 1
@@ -442,6 +582,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = MidWall_01
@@ -463,13 +610,20 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = MidWall_02
 mesh_type = 0
 mesh_name = 
 texture_name = Walls/texture
-position = 8 1 7
+position = 8 1 9
 rotation = 0 -20 0
 scale = 5 2 0.4
 color = 0.52 0.48 0.4 1
@@ -484,6 +638,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = MidWall_03
@@ -505,6 +666,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Platform
@@ -526,6 +694,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Pillar_1
@@ -547,6 +722,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Pillar_2
@@ -568,6 +750,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Pillar_3
@@ -589,6 +778,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Pillar_4
@@ -610,6 +806,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Rail_N
@@ -631,6 +834,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Tower_Rail_E
@@ -652,6 +862,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = LowWall_01
@@ -673,6 +890,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = LowWall_02
@@ -694,6 +918,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = LowWall_03
@@ -715,6 +946,13 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
 [entity]
 name = Thick_Concrete_Wall
@@ -736,4 +974,123 @@ supported_by =
 break_pieces = 3
 voxel_destruct = 0
 voxel_res = 2
+pickup_type = 0
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
+
+[entity]
+name = Medpack_35
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -2 0.540738 -2
+rotation = 0 114.939 0
+scale = 0.4 0.25 0.3
+color = 0.1 0.9 0.2 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 100
+debris_count = 6
+debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+pickup_type = 1
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
+
+[entity]
+name = Medpack_35_copy
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = -1 0.540738 -2
+rotation = 0 114.967 0
+scale = 0.4 0.25 0.3
+color = 0.1 0.9 0.2 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 100
+debris_count = 6
+debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+pickup_type = 1
+pickup_amount = 25
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
+
+[entity]
+name = AmmoPack_37
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 1 0.515738 -2
+rotation = 0 312.566 0
+scale = 0.3 0.2 0.25
+color = 0.9 0.7 0.1 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 100
+debris_count = 6
+debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+pickup_type = 2
+pickup_amount = 30
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
+
+[entity]
+name = AmmoPack_37_copy
+mesh_type = 0
+mesh_name = 
+texture_name = 
+position = 2 0.515738 -2
+rotation = 0 134.251 0
+scale = 0.3 0.2 0.25
+color = 0.9 0.7 0.1 1
+visible = 1
+cast_shadow = 1
+destructible = 1
+health = 100
+debris_count = 6
+debris_scale = 0.3
+material_type = 0
+supported_by = 
+break_pieces = 3
+voxel_destruct = 0
+voxel_res = 2
+pickup_type = 2
+pickup_amount = 30
+pickup_radius = 1.5
+pickup_bob_speed = 2
+pickup_bob_height = 0.15
+pickup_spin_speed = 90
+pickup_respawn = 15
 
