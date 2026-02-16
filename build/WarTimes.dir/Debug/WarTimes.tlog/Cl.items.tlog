@@ -13,6 +13,7 @@ D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\HUD.cpp;D:\D_Documents\gam
 D:\D_Documents\game\2026\War Times_V0.01\src\Gameplay\WeaponSystem.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\WeaponSystem.obj
 D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Camera.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\Camera.obj
 D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\DebugRenderer.obj
+D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FSRUpscaler.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\FSRUpscaler.obj
 D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\Mesh.obj
 D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\MeshLoader.obj
 D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\PostProcess.cpp;D:\D_Documents\game\2026\War Times_V0.01\build\WarTimes.dir\Debug\PostProcess.obj

@@ -27,6 +27,8 @@
 #include "Editor/EditorUI.h"
 #include "Editor/EditorPanels.h"
 #include "Editor/LevelEditorWindow.h"
+#include "Core/SceneCulling.h"
+#include "Graphics/FSRUpscaler.h"
 
 namespace WT {
 
@@ -142,6 +144,12 @@ private:
 
     // Hot-reload timer
     float m_hotReloadTimer = 0.0f;
+
+    // FSR upscaling
+    FSRUpscaler m_fsrUpscaler;
+
+    // Culling & streaming
+    SceneCuller m_sceneCuller;
 };
 
 } // namespace WT

@@ -8,6 +8,9 @@
 
 namespace WT {
 
+// Forward declaration for cached texture pointer
+class Texture;
+
 using namespace DirectX;
 
 // ---- Mesh type for spawnable objects ----
@@ -50,6 +53,11 @@ struct Entity {
     MeshType    meshType   = MeshType::Cube;
     std::string meshName;     // For MeshType::Custom — name key in ResourceManager
     std::string textureName;   // Optional texture override (key in ResourceManager)
+
+    // Cached texture pointer — resolved once, avoids per-frame hash map lookup
+    mutable Texture* cachedTexture    = nullptr;
+    mutable bool     textureCacheDirty = true;
+
     float       position[3] = { 0.0f, 0.0f, 0.0f };
     float       rotation[3] = { 0.0f, 0.0f, 0.0f };  // Euler angles (degrees)
     float       scale[3]    = { 1.0f, 1.0f, 1.0f };

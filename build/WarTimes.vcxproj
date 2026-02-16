@@ -551,6 +551,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Input.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.h" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\SceneCulling.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Editor\EditorPanels.cpp" />
@@ -570,6 +571,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\ConstantBuffer.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.h" />
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FSRUpscaler.cpp" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FSRUpscaler.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\MeshLoader.cpp" />
@@ -587,6 +590,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Texture.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\LevelGenerator.h" />
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\WarfieldGenerator.h" />
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.cpp" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h" />
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Util\Log.h" />
@@ -597,6 +601,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\DebugPS.hlsl">
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\DebugVS.hlsl">
+    </None>
+    <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\FSRPS.hlsl">
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\GroundPS.hlsl">
     </None>

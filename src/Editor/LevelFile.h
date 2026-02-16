@@ -18,6 +18,18 @@ class LevelFile {
 public:
     // Save scene to a .wtlevel file
     static bool Save(const std::string& path, const Scene& scene) {
+        LOG_INFO("LevelFile::Save: attempting to save %d entities to '%s'", scene.GetEntityCount(), path.c_str());
+        
+        // Ensure parent directory exists
+        try {
+            auto parentDir = std::filesystem::path(path).parent_path();
+            if (!parentDir.empty()) {
+                std::filesystem::create_directories(parentDir);
+            }
+        } catch (const std::exception& ex) {
+            LOG_ERROR("LevelFile: Failed to create directory for '%s': %s", path.c_str(), ex.what());
+        }
+
         std::ofstream file(path);
         if (!file.is_open()) {
             LOG_ERROR("LevelFile: Failed to open '%s' for writing", path.c_str());
@@ -156,14 +168,24 @@ public:
     // List all .wtlevel files in a directory
     static std::vector<std::string> ListLevels(const std::string& directory) {
         std::vector<std::string> result;
+        if (directory.empty()) {
+            LOG_WARN("LevelFile::ListLevels: empty directory path");
+            return result;
+        }
         try {
+            if (!std::filesystem::exists(directory)) {
+                LOG_WARN("LevelFile::ListLevels: directory does not exist: '%s'", directory.c_str());
+                return result;
+            }
             for (auto& entry : std::filesystem::directory_iterator(directory)) {
                 if (entry.path().extension() == ".wtlevel") {
                     result.push_back(entry.path().string());
                 }
             }
+        } catch (const std::exception& ex) {
+            LOG_ERROR("LevelFile::ListLevels: exception scanning '%s': %s", directory.c_str(), ex.what());
         } catch (...) {
-            // Directory doesn't exist or can't be read
+            LOG_ERROR("LevelFile::ListLevels: unknown exception scanning '%s'", directory.c_str());
         }
         return result;
     }

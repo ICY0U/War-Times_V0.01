@@ -186,6 +186,27 @@ struct EditorState {
     // PCG
     bool  pcgOnLaunch        = false;    // Generate random level on game start
 
+    // Ground mesh
+    float groundHalfExtent    = 200.0f;  // Half-size of ground quad
+    bool  groundRebuildRequested = false; // Rebuild ground mesh (after warfield gen)
+
+    // Culling & Level Streaming
+    bool  cullingEnabled       = true;    // Frustum culling
+    bool  streamingEnabled     = true;    // Distance-based streaming
+    float streamDistance       = 250.0f;  // Max render distance from camera
+    float shadowCullDistance   = 100.0f;  // Max shadow cast distance
+    // Stats (read only, set by culler)
+    int   cullStatsTotal       = 0;
+    int   cullStatsFrustum     = 0;
+    int   cullStatsDistance    = 0;
+    int   cullStatsRendered    = 0;
+
+    // FSR Upscaling
+    bool  fsrEnabled    = false;
+    int   fsrQuality    = 1;       // FSRQuality enum index (0=UltraQ, 1=Quality, 2=Balanced, 3=Perf)
+    float fsrSharpness  = 0.2f;    // RCAS sharpness (0 = max sharpening, 1 = off)
+    bool  fsrDirty      = false;
+
     // Flags
     bool lightingDirty  = false;
     bool cameraDirty    = false;
@@ -232,8 +253,9 @@ private:
     void SectionAI(EditorState& state);
     void SectionWeapon(EditorState& state);
     void SectionCamera(EditorState& state, Camera& camera);
+    void SectionCulling(EditorState& state);
     void SectionRenderer(EditorState& state, Renderer& renderer);
-    void SectionPerformance(Renderer& renderer, int fps, float dt);
+    void SectionPerformance(EditorState& state, Renderer& renderer, int fps, float dt);
 
     // Visual helpers
     bool BeginSection(const char* icon, const char* label, bool defaultOpen = true);

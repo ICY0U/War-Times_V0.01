@@ -46,6 +46,9 @@
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
+    <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FSRUpscaler.cpp">
+      <Filter>Source\Graphics</Filter>
+    </ClCompile>
     <ClCompile Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.cpp">
       <Filter>Source\Graphics</Filter>
     </ClCompile>
@@ -123,6 +126,9 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\ResourceManager.h">
       <Filter>Source\Core</Filter>
     </ClInclude>
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\SceneCulling.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Core\Timer.h">
       <Filter>Source\Core</Filter>
     </ClInclude>
@@ -156,6 +162,9 @@
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\DebugRenderer.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\FSRUpscaler.h">
+      <Filter>Source\Graphics</Filter>
+    </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Graphics\Mesh.h">
       <Filter>Source\Graphics</Filter>
     </ClInclude>
@@ -181,6 +190,9 @@
       <Filter>Source\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\LevelGenerator.h">
+      <Filter>Source\PCG</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\PCG\WarfieldGenerator.h">
       <Filter>Source\PCG</Filter>
     </ClInclude>
     <ClInclude Include="D:\D_Documents\game\2026\War Times_V0.01\src\Physics\PhysicsWorld.h">
@@ -228,6 +240,9 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\DebugVS.hlsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\FSRPS.hlsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="D:\D_Documents\game\2026\War Times_V0.01\shaders\GroundPS.hlsl">

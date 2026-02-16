@@ -220,22 +220,32 @@ bool LevelEditorWindow::Init(ID3D11Device* sharedDevice, HINSTANCE hInstance, in
     exeDir = exeDir.substr(0, exeDir.find_last_of(L"\\/") + 1);
     m_debugRenderer.Init(m_device, exeDir + L"shaders/");
 
-    // Levels directory — use source directory (../../levels/ relative to exe)
-    // so saved levels persist across clean builds (same pattern as models)
+    // Levels directory — try source tree first (../../levels/ from exe),
+    // fallback to exe-relative levels/
     char exeDirBuf[MAX_PATH];
     WideCharToMultiByte(CP_ACP, 0, exeDir.c_str(), -1, exeDirBuf, MAX_PATH, nullptr, nullptr);
     std::string exeDirStr(exeDirBuf);
-    m_levelsDirectory = exeDirStr + "../../levels/";
-    // Normalize the path to resolve the ../.. 
+
+    // Try source directory first (works when running from build/bin/)
+    std::filesystem::path srcLevels = std::filesystem::path(exeDirStr) / ".." / ".." / "levels";
+    std::filesystem::path exeLevels = std::filesystem::path(exeDirStr) / "levels";
+
     try {
-        auto canonical = std::filesystem::weakly_canonical(m_levelsDirectory);
-        m_levelsDirectory = canonical.string() + "\\";
-    } catch (...) {
-        // Fallback to exe-relative if canonical fails
-        m_levelsDirectory = exeDirStr + "levels/";
+        srcLevels = std::filesystem::weakly_canonical(srcLevels);
+    } catch (...) {}
+
+    if (std::filesystem::exists(srcLevels) && std::filesystem::is_directory(srcLevels)) {
+        m_levelsDirectory = srcLevels.string() + "\\";
+        LOG_INFO("Levels directory (source): %s", m_levelsDirectory.c_str());
+    } else if (std::filesystem::exists(exeLevels) && std::filesystem::is_directory(exeLevels)) {
+        m_levelsDirectory = exeLevels.string() + "\\";
+        LOG_INFO("Levels directory (exe-local): %s", m_levelsDirectory.c_str());
+    } else {
+        // Create in exe directory as last resort
+        m_levelsDirectory = exeLevels.string() + "\\";
+        std::filesystem::create_directories(exeLevels);
+        LOG_WARN("Levels directory created: %s", m_levelsDirectory.c_str());
     }
-    std::filesystem::create_directories(m_levelsDirectory);
-    LOG_INFO("Levels directory: %s", m_levelsDirectory.c_str());
 
     // Init ImGui for this window
     if (!InitImGui()) {
@@ -1425,10 +1435,31 @@ void LevelEditorWindow::DrawLevelSection(EditorState& state) {
         state.entityDirty = true;
     }
 
+    // Delete button (only if a file is currently loaded/saved)
+    if (!m_currentLevelPath.empty()) {
+        if (ImGui::Button("Del", ImVec2(38, 0))) {
+            ImGui::OpenPopup("##LEDeleteConfirm");
+        }
+        if (ImGui::BeginPopup("##LEDeleteConfirm")) {
+            ImGui::Text("Delete '%s'?", LevelFile::GetLevelName(m_currentLevelPath).c_str());
+            if (ImGui::Button("Yes, Delete")) {
+                DeleteCurrentLevel(state);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+    }
+
     if (ImGui::BeginPopup("##LELoadPopup")) {
         auto files = LevelFile::ListLevels(m_levelsDirectory);
+        LOG_INFO("Load popup: dir='%s', found %d files", m_levelsDirectory.c_str(), (int)files.size());
         if (files.empty()) {
             ImGui::TextDisabled("No .wtlevel files found");
+            ImGui::TextDisabled("Dir: %s", m_levelsDirectory.c_str());
         }
         for (auto& f : files) {
             std::string name = LevelFile::GetLevelName(f);
@@ -1446,6 +1477,7 @@ void LevelEditorWindow::DrawLevelSection(EditorState& state) {
         ImGui::SameLine();
         if (ImGui::Button("Go")) {
             m_currentLevelPath = m_levelsDirectory + std::string(m_levelNameBuf) + ".wtlevel";
+            LOG_INFO("Save As: path='%s'", m_currentLevelPath.c_str());
             SaveCurrentLevel(state);
             m_levelNameBuf[0] = '\0';
         }
@@ -1465,6 +1497,26 @@ void LevelEditorWindow::DrawLevelSection(EditorState& state) {
     }
     ImGui::PopStyleColor();
 
+    // Status feedback message (e.g. "Saved!", "Load failed")
+    if (m_statusTimer > 0.0f) {
+        bool isError = m_statusMessage.find("FAILED") != std::string::npos;
+        ImGui::PushStyleColor(ImGuiCol_Text, isError ? ImVec4(1,0.3f,0.3f,1) : ImVec4(0.3f,1,0.3f,1));
+        ImGui::Text("%s", m_statusMessage.c_str());
+        ImGui::PopStyleColor();
+        m_statusTimer -= ImGui::GetIO().DeltaTime;
+    }
+
+    // Show directory path (collapsed by default)
+    if (ImGui::TreeNode("Directory")) {
+        ImGui::TextWrapped("%s", m_levelsDirectory.c_str());
+        auto files = LevelFile::ListLevels(m_levelsDirectory);
+        ImGui::Text("%d files found", (int)files.size());
+        for (auto& f : files) {
+            ImGui::BulletText("%s", LevelFile::GetLevelName(f).c_str());
+        }
+        ImGui::TreePop();
+    }
+
     EndSection();
 }
 
@@ -1472,90 +1524,232 @@ void LevelEditorWindow::DrawLevelSection(EditorState& state) {
 void LevelEditorWindow::DrawPCGSection(EditorState& state) {
     if (!BeginSection("PCG", "Level Generator", false)) return;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
-    ImGui::Text("Procedural Urban Warfare");
-    ImGui::PopStyleColor();
+    // Mode selector — Urban vs Warfield
+    const char* modes[] = { "Urban Arena", "Warfield (Massive)" };
+    PropertyLabel("Mode");
+    ImGui::Combo("##pcgmode", &m_pcgMode, modes, 2);
+
     ImGui::Spacing();
 
-    PropertyLabel("Seed");
-    int seedInt = static_cast<int>(m_pcgSettings.seed);
-    if (ImGui::DragInt("##pcgseed", &seedInt, 1.0f, 0, 999999)) {
-        m_pcgSettings.seed = static_cast<uint32_t>(seedInt);
+    if (m_pcgMode == 0) {
+        // ===== URBAN ARENA (original) =====
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1.0f));
+        ImGui::Text("Procedural Urban Warfare");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        PropertyLabel("Seed");
+        int seedInt = static_cast<int>(m_pcgSettings.seed);
+        if (ImGui::DragInt("##pcgseed", &seedInt, 1.0f, 0, 999999)) {
+            m_pcgSettings.seed = static_cast<uint32_t>(seedInt);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+        ImGui::Text("  0 = random seed");
+        ImGui::PopStyleColor();
+
+        PropertyLabel("Arena Size");
+        ImGui::DragFloat("##pcgarena", &m_pcgSettings.arenaSize, 0.5f, 20.0f, 100.0f, "%.0f");
+
+        PropertyLabel("Grid");
+        ImGui::PushItemWidth(50);
+        ImGui::DragInt("##pcgcols", &m_pcgSettings.gridCols, 0.05f, 2, 5);
+        ImGui::SameLine(); ImGui::Text("x");
+        ImGui::SameLine();
+        ImGui::DragInt("##pcgrows", &m_pcgSettings.gridRows, 0.05f, 2, 5);
+        ImGui::PopItemWidth();
+
+        PropertyLabel("Street Width");
+        ImGui::DragFloat("##pcgstreet", &m_pcgSettings.streetWidth, 0.1f, 2.0f, 8.0f, "%.1f");
+
+        PropertyLabel("Wall Height");
+        ImGui::DragFloat("##pcgwallh", &m_pcgSettings.wallHeight, 0.1f, 2.0f, 8.0f, "%.1f");
+
+        PropertyLabel("Building H");
+        ImGui::PushItemWidth(60);
+        ImGui::DragFloat("##pcgbhmin", &m_pcgSettings.buildingMinH, 0.1f, 1.5f, 8.0f, "%.1f");
+        ImGui::SameLine(); ImGui::Text("-");
+        ImGui::SameLine();
+        ImGui::DragFloat("##pcgbhmax", &m_pcgSettings.buildingMaxH, 0.1f, 2.0f, 10.0f, "%.1f");
+        ImGui::PopItemWidth();
+
+        PropertyLabel("Building %");
+        float bpct = m_pcgSettings.buildingChance * 100.0f;
+        if (ImGui::DragFloat("##pcgbchance", &bpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+            m_pcgSettings.buildingChance = bpct / 100.0f;
+
+        PropertyLabel("Roof %");
+        float rpct = m_pcgSettings.roofChance * 100.0f;
+        if (ImGui::DragFloat("##pcgroof", &rpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+            m_pcgSettings.roofChance = rpct / 100.0f;
+
+        PropertyLabel("Cover Objects");
+        ImGui::DragInt("##pcgcover", &m_pcgSettings.coverDensity, 0.2f, 0, 50);
+
+        PropertyLabel("Detail Props");
+        ImGui::DragInt("##pcgdetail", &m_pcgSettings.detailDensity, 0.2f, 0, 60);
+
+        ImGui::Spacing();
+        PropertyLabel("Options");
+        ImGui::Checkbox("Windows##pcgwin", &m_pcgSettings.addWindows);
+        ImGui::SameLine();
+        ImGui::Checkbox("Fences##pcgfen", &m_pcgSettings.addFences);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Generate button
+        ImVec4 genColor(0.2f, 0.6f, 0.2f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, genColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.5f, 0.15f, 1.0f));
+        if (ImGui::Button("Generate Level", ImVec2(-1, 28))) {
+            LevelGenerator gen;
+            gen.settings = m_pcgSettings;
+            gen.Generate(state.scene);
+            state.selectedEntity = -1;
+            state.physicsRebuildRequested = true;
+            state.navRebuildRequested = true;
+            state.entityDirty = true;
+            m_unsavedChanges = true;
+            m_currentLevelPath.clear();
+            LOG_INFO("PCG: Generated level (seed %u, %d entities)",
+                     gen.GetUsedSeed(), state.scene.GetEntityCount());
+        }
+        ImGui::PopStyleColor(3);
     }
-    ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
-    ImGui::Text("  0 = random seed");
-    ImGui::PopStyleColor();
+    else {
+        // ===== WARFIELD (MASSIVE) =====
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.5f, 0.2f, 1.0f));
+        ImGui::Text("Massive Open World Battlefield");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
 
-    PropertyLabel("Arena Size");
-    ImGui::DragFloat("##pcgarena", &m_pcgSettings.arenaSize, 0.5f, 20.0f, 100.0f, "%.0f");
+        PropertyLabel("Seed");
+        int wfSeed = static_cast<int>(m_warfieldSettings.seed);
+        if (ImGui::DragInt("##wfseed", &wfSeed, 1.0f, 0, 999999))
+            m_warfieldSettings.seed = static_cast<uint32_t>(wfSeed);
+        ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+        ImGui::Text("  0 = random seed");
+        ImGui::PopStyleColor();
 
-    PropertyLabel("Grid");
-    ImGui::PushItemWidth(50);
-    ImGui::DragInt("##pcgcols", &m_pcgSettings.gridCols, 0.05f, 2, 5);
-    ImGui::SameLine(); ImGui::Text("x");
-    ImGui::SameLine();
-    ImGui::DragInt("##pcgrows", &m_pcgSettings.gridRows, 0.05f, 2, 5);
-    ImGui::PopItemWidth();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 0.9f, 1.0f));
+        ImGui::Text("-- Terrain --");
+        ImGui::PopStyleColor();
 
-    PropertyLabel("Street Width");
-    ImGui::DragFloat("##pcgstreet", &m_pcgSettings.streetWidth, 0.1f, 2.0f, 8.0f, "%.1f");
+        PropertyLabel("Map Size");
+        ImGui::DragFloat("##wfsize", &m_warfieldSettings.mapSize, 1.0f, 100.0f, 500.0f, "%.0f");
 
-    PropertyLabel("Wall Height");
-    ImGui::DragFloat("##pcgwallh", &m_pcgSettings.wallHeight, 0.1f, 2.0f, 8.0f, "%.1f");
+        PropertyLabel("Terrain Height");
+        ImGui::DragFloat("##wftheight", &m_warfieldSettings.terrainHeight, 0.1f, 1.0f, 20.0f, "%.1f");
 
-    PropertyLabel("Building H");
-    ImGui::PushItemWidth(60);
-    ImGui::DragFloat("##pcgbhmin", &m_pcgSettings.buildingMinH, 0.1f, 1.5f, 8.0f, "%.1f");
-    ImGui::SameLine(); ImGui::Text("-");
-    ImGui::SameLine();
-    ImGui::DragFloat("##pcgbhmax", &m_pcgSettings.buildingMaxH, 0.1f, 2.0f, 10.0f, "%.1f");
-    ImGui::PopItemWidth();
+        PropertyLabel("Terrain Freq");
+        ImGui::DragFloat("##wftfreq", &m_warfieldSettings.terrainFreq, 0.001f, 0.005f, 0.1f, "%.3f");
 
-    PropertyLabel("Building %");
-    float bpct = m_pcgSettings.buildingChance * 100.0f;
-    if (ImGui::DragFloat("##pcgbchance", &bpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
-        m_pcgSettings.buildingChance = bpct / 100.0f;
+        PropertyLabel("Terrain Res");
+        ImGui::DragInt("##wftres", &m_warfieldSettings.terrainRes, 1.0f, 32, 256);
 
-    PropertyLabel("Roof %");
-    float rpct = m_pcgSettings.roofChance * 100.0f;
-    if (ImGui::DragFloat("##pcgroof", &rpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
-        m_pcgSettings.roofChance = rpct / 100.0f;
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 0.9f, 1.0f));
+        ImGui::Text("-- Towns --");
+        ImGui::PopStyleColor();
 
-    PropertyLabel("Cover Objects");
-    ImGui::DragInt("##pcgcover", &m_pcgSettings.coverDensity, 0.2f, 0, 50);
+        PropertyLabel("Town Count");
+        ImGui::DragInt("##wftowns", &m_warfieldSettings.townCount, 0.1f, 1, 8);
 
-    PropertyLabel("Detail Props");
-    ImGui::DragInt("##pcgdetail", &m_pcgSettings.detailDensity, 0.2f, 0, 60);
+        PropertyLabel("Town Blocks");
+        ImGui::PushItemWidth(50);
+        ImGui::DragInt("##wftbmin", &m_warfieldSettings.townMinBlocks, 0.05f, 1, 5);
+        ImGui::SameLine(); ImGui::Text("-");
+        ImGui::SameLine();
+        ImGui::DragInt("##wftbmax", &m_warfieldSettings.townMaxBlocks, 0.05f, 2, 8);
+        ImGui::PopItemWidth();
 
-    ImGui::Spacing();
-    PropertyLabel("Options");
-    ImGui::Checkbox("Windows##pcgwin", &m_pcgSettings.addWindows);
-    ImGui::SameLine();
-    ImGui::Checkbox("Fences##pcgfen", &m_pcgSettings.addFences);
+        PropertyLabel("Street Width");
+        ImGui::DragFloat("##wfstreet", &m_warfieldSettings.streetWidth, 0.1f, 2.0f, 10.0f, "%.1f");
 
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+        PropertyLabel("Building H");
+        ImGui::PushItemWidth(60);
+        ImGui::DragFloat("##wfbhmin", &m_warfieldSettings.buildingMinH, 0.1f, 1.5f, 10.0f, "%.1f");
+        ImGui::SameLine(); ImGui::Text("-");
+        ImGui::SameLine();
+        ImGui::DragFloat("##wfbhmax", &m_warfieldSettings.buildingMaxH, 0.1f, 2.0f, 12.0f, "%.1f");
+        ImGui::PopItemWidth();
 
-    // Generate button
-    ImVec4 genColor(0.2f, 0.6f, 0.2f, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, genColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.5f, 0.15f, 1.0f));
-    if (ImGui::Button("Generate Level", ImVec2(-1, 28))) {
-        LevelGenerator gen;
-        gen.settings = m_pcgSettings;
-        gen.Generate(state.scene);
-        state.selectedEntity = -1;
-        state.physicsRebuildRequested = true;
-        state.navRebuildRequested = true;
-        state.entityDirty = true;
-        m_unsavedChanges = true;
-        m_currentLevelPath.clear();
-        LOG_INFO("PCG: Generated level (seed %u, %d entities)",
-                 gen.GetUsedSeed(), state.scene.GetEntityCount());
+        PropertyLabel("Building %");
+        float wfbpct = m_warfieldSettings.buildingChance * 100.0f;
+        if (ImGui::DragFloat("##wfbchance", &wfbpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+            m_warfieldSettings.buildingChance = wfbpct / 100.0f;
+
+        PropertyLabel("Roof %");
+        float wfrpct = m_warfieldSettings.roofChance * 100.0f;
+        if (ImGui::DragFloat("##wfroof", &wfrpct, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+            m_warfieldSettings.roofChance = wfrpct / 100.0f;
+
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 0.9f, 1.0f));
+        ImGui::Text("-- Features --");
+        ImGui::PopStyleColor();
+
+        PropertyLabel("Outposts");
+        ImGui::DragInt("##wfoutposts", &m_warfieldSettings.outpostCount, 0.1f, 0, 12);
+
+        PropertyLabel("Forest Clusters");
+        ImGui::DragInt("##wfforests", &m_warfieldSettings.forestClusters, 0.1f, 0, 20);
+
+        PropertyLabel("Trees/Cluster");
+        ImGui::DragInt("##wftrees", &m_warfieldSettings.treesPerCluster, 0.2f, 5, 40);
+
+        PropertyLabel("Field Cover");
+        ImGui::DragInt("##wfcover", &m_warfieldSettings.fieldCover, 0.2f, 0, 100);
+
+        ImGui::Spacing();
+        PropertyLabel("Options");
+        ImGui::Checkbox("Forests##wffor", &m_warfieldSettings.addForests);
+        ImGui::SameLine();
+        ImGui::Checkbox("Outposts##wfop", &m_warfieldSettings.addOutposts);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Entity count estimate
+        int terrChunks = (int)(m_warfieldSettings.mapSize / 10.0f);
+        terrChunks *= terrChunks;
+        int estTrees = m_warfieldSettings.addForests ? m_warfieldSettings.forestClusters * m_warfieldSettings.treesPerCluster * 2 : 0;
+        int estTotal = terrChunks + m_warfieldSettings.townCount * 20 + m_warfieldSettings.outpostCount * 6 + estTrees + m_warfieldSettings.fieldCover;
+        ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+        ImGui::Text("  ~%d entities estimated", estTotal);
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+
+        // Generate button — orange for warfield
+        ImVec4 genColor(0.7f, 0.4f, 0.1f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, genColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.5f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.35f, 0.1f, 1.0f));
+        if (ImGui::Button("Generate Warfield", ImVec2(-1, 30))) {
+            WarfieldGenerator gen;
+            gen.settings = m_warfieldSettings;
+            gen.Generate(state.scene);
+            state.selectedEntity = -1;
+            state.physicsRebuildRequested = true;
+            state.navRebuildRequested = true;
+            state.entityDirty = true;
+            m_unsavedChanges = true;
+            m_currentLevelPath.clear();
+
+            // Update ground size to match map
+            state.groundHalfExtent = m_warfieldSettings.mapSize * 0.5f;
+            state.groundRebuildRequested = true;
+
+            LOG_INFO("Warfield: Generated massive level (seed %u, %d entities, %.0f map size)",
+                     gen.GetUsedSeed(), state.scene.GetEntityCount(), m_warfieldSettings.mapSize);
+        }
+        ImGui::PopStyleColor(3);
     }
-    ImGui::PopStyleColor(3);
 
     ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
     ImGui::Text("  Replaces current level!");
@@ -2534,21 +2728,48 @@ void LevelEditorWindow::DrawCharacterSection(EditorState& state) {
 
 // ==================== Level File Operations ====================
 void LevelEditorWindow::SaveCurrentLevel(EditorState& state) {
-    if (m_currentLevelPath.empty())
-        m_currentLevelPath = m_levelsDirectory + "untitled.wtlevel";
+    if (m_currentLevelPath.empty()) {
+        // Check if Save As name buffer has text — use it instead of "untitled"
+        if (m_levelNameBuf[0] != '\0') {
+            m_currentLevelPath = m_levelsDirectory + std::string(m_levelNameBuf) + ".wtlevel";
+            m_levelNameBuf[0] = '\0';
+        } else {
+            m_statusMessage = "Enter a name in Save As first!";
+            m_statusTimer = 3.0f;
+            LOG_WARN("Save: no level path and no Save As name entered");
+            return;
+        }
+    }
+
+    LOG_INFO("Saving level to: %s", m_currentLevelPath.c_str());
+
     if (LevelFile::Save(m_currentLevelPath, state.scene)) {
         m_unsavedChanges = false;
-        LOG_INFO("Level saved: %s", m_currentLevelPath.c_str());
+        m_statusMessage = "Saved: " + LevelFile::GetLevelName(m_currentLevelPath);
+        m_statusTimer = 3.0f;
+        LOG_INFO("Level saved: %s (%d entities)", m_currentLevelPath.c_str(), state.scene.GetEntityCount());
+    } else {
+        m_statusMessage = "SAVE FAILED!";
+        m_statusTimer = 5.0f;
+        LOG_ERROR("Level save failed: %s", m_currentLevelPath.c_str());
     }
 }
 
 void LevelEditorWindow::LoadLevel(const std::string& path, EditorState& state) {
+    LOG_INFO("Loading level from: %s", path.c_str());
     if (LevelFile::Load(path, state.scene)) {
         m_currentLevelPath = path;
         state.selectedEntity = -1;
         m_unsavedChanges = false;
         state.physicsRebuildRequested = true;
-        LOG_INFO("Level loaded: %s", path.c_str());
+        state.entityDirty = true;
+        m_statusMessage = "Loaded: " + LevelFile::GetLevelName(path) + " (" + std::to_string(state.scene.GetEntityCount()) + " ent)";
+        m_statusTimer = 3.0f;
+        LOG_INFO("Level loaded: %s (%d entities)", path.c_str(), state.scene.GetEntityCount());
+    } else {
+        m_statusMessage = "LOAD FAILED!";
+        m_statusTimer = 5.0f;
+        LOG_ERROR("Level load failed: %s", path.c_str());
     }
 }
 
@@ -2558,7 +2779,35 @@ void LevelEditorWindow::NewLevel(EditorState& state) {
     m_currentLevelPath.clear();
     m_unsavedChanges = false;
     state.physicsRebuildRequested = true;
+    state.entityDirty = true;
+    m_statusMessage = "New level created";
+    m_statusTimer = 2.0f;
     LOG_INFO("New level created");
+}
+
+void LevelEditorWindow::DeleteCurrentLevel(EditorState& state) {
+    if (m_currentLevelPath.empty()) {
+        m_statusMessage = "No level file to delete";
+        m_statusTimer = 3.0f;
+        return;
+    }
+    try {
+        if (std::filesystem::exists(m_currentLevelPath)) {
+            std::filesystem::remove(m_currentLevelPath);
+            LOG_INFO("Deleted level: %s", m_currentLevelPath.c_str());
+            m_statusMessage = "Deleted: " + LevelFile::GetLevelName(m_currentLevelPath);
+            m_statusTimer = 3.0f;
+            m_currentLevelPath.clear();
+            m_unsavedChanges = false;
+        } else {
+            m_statusMessage = "File not found";
+            m_statusTimer = 3.0f;
+        }
+    } catch (const std::exception& ex) {
+        LOG_ERROR("Failed to delete level: %s", ex.what());
+        m_statusMessage = "DELETE FAILED!";
+        m_statusTimer = 5.0f;
+    }
 }
 
 // ==================== Shutdown ====================

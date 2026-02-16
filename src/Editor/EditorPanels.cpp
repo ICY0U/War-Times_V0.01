@@ -3,6 +3,7 @@
 #include "LevelEditorWindow.h"
 #include "Graphics/Renderer.h"
 #include "Graphics/Camera.h"
+#include "Graphics/FSRUpscaler.h"
 #include "Core/ResourceManager.h"
 #include "Gameplay/WeaponSystem.h"
 #include "imgui.h"
@@ -239,9 +240,11 @@ void EditorPanels::DrawOutliner(EditorState& state, Renderer& renderer, Camera& 
     SectionNavGrid(state);
     SectionAI(state);
     SectionWeapon(state);
+    SectionLevel(state);
     SectionCamera(state, camera);
+    SectionCulling(state);
     SectionRenderer(state, renderer);
-    SectionPerformance(renderer, fps, dt);
+    SectionPerformance(state, renderer, fps, dt);
 
     ImGui::End();
     ImGui::PopStyleColor(2);
@@ -334,6 +337,7 @@ void EditorPanels::SectionLevel(EditorState& state) {
     if (!BeginSection("LVL", "Level File")) return;
 
     auto* editor = state.pLevelEditor;
+    static char saveAsBuf[128] = {};
 
     // Save / Load / New buttons
     if (ImGui::Button("New", ImVec2(50, 0))) {
@@ -341,7 +345,15 @@ void EditorPanels::SectionLevel(EditorState& state) {
     }
     ImGui::SameLine();
     if (ImGui::Button("Save", ImVec2(50, 0))) {
-        if (editor) editor->SaveCurrentLevel(state);
+        if (editor) {
+            // If no current path but saveAsBuf has text, use it
+            if (editor->GetCurrentLevelPath().empty() && saveAsBuf[0] != '\0') {
+                std::string newPath = editor->GetLevelsDirectory() + std::string(saveAsBuf) + ".wtlevel";
+                editor->SetCurrentLevelPath(newPath);
+                saveAsBuf[0] = '\0';
+            }
+            editor->SaveCurrentLevel(state);
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("Load...", ImVec2(60, 0))) {
@@ -349,11 +361,29 @@ void EditorPanels::SectionLevel(EditorState& state) {
     }
     ImGui::SameLine();
     if (ImGui::Button("Hot Swap", ImVec2(75, 0))) {
-        // Copy current editor scene into game (they share the same Scene in EditorState)
-        // The hot-swap flag tells Application to rebuild physics, nav, etc.
         state.physicsRebuildRequested = true;
         state.navRebuildRequested = true;
         state.entityDirty = true;
+    }
+
+    // Delete button (only if a file is loaded)
+    if (editor && !editor->GetCurrentLevelPath().empty()) {
+        ImGui::SameLine();
+        if (ImGui::Button("Del", ImVec2(38, 0))) {
+            ImGui::OpenPopup("##LevelDeleteConfirm");
+        }
+        if (ImGui::BeginPopup("##LevelDeleteConfirm")) {
+            ImGui::Text("Delete '%s'?", LevelFile::GetLevelName(editor->GetCurrentLevelPath()).c_str());
+            if (ImGui::Button("Yes, Delete")) {
+                editor->DeleteCurrentLevel(state);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
     }
 
     // Load popup — list available .wtlevel files
@@ -380,7 +410,6 @@ void EditorPanels::SectionLevel(EditorState& state) {
 
     // Save As — type a name and save as new level file
     if (editor) {
-        static char saveAsBuf[128] = {};
         ImGui::SetNextItemWidth(120.0f);
         ImGui::InputText("##saveAsName", saveAsBuf, sizeof(saveAsBuf));
         if (saveAsBuf[0] != '\0') {
@@ -413,6 +442,14 @@ void EditorPanels::SectionLevel(EditorState& state) {
         ImGui::Text("File: (unsaved)");
     ImGui::Text("Entities: %d", state.scene.GetEntityCount());
     ImGui::PopStyleColor();
+
+    // Status feedback from level operations
+    if (editor && editor->GetStatusTimer() > 0.0f) {
+        bool isError = editor->GetStatusMessage().find("FAILED") != std::string::npos;
+        ImGui::PushStyleColor(ImGuiCol_Text, isError ? ImVec4(1,0.3f,0.3f,1) : ImVec4(0.3f,1,0.3f,1));
+        ImGui::Text("%s", editor->GetStatusMessage().c_str());
+        ImGui::PopStyleColor();
+    }
 
     EndSection();
 }
@@ -1323,6 +1360,27 @@ void EditorPanels::SectionCamera(EditorState& state, Camera& camera) {
     EndSection();
 }
 
+// ==================== CULLING & STREAMING ====================
+void EditorPanels::SectionCulling(EditorState& state) {
+    if (!BeginSection("EYE", "Culling")) return;
+
+    PropertyLabel("Frustum Culling");
+    ImGui::Checkbox("##cullEnabled", &state.cullingEnabled);
+
+    PropertyLabel("Level Streaming");
+    ImGui::Checkbox("##streamEnabled", &state.streamingEnabled);
+
+    if (state.streamingEnabled) {
+        PropertyLabel("Stream Distance");
+        ImGui::DragFloat("##streamDist", &state.streamDistance, 1.0f, 50.0f, 1000.0f, "%.0f");
+    }
+
+    PropertyLabel("Shadow Distance");
+    ImGui::DragFloat("##shadowCullDist", &state.shadowCullDistance, 1.0f, 20.0f, 500.0f, "%.0f");
+
+    EndSection();
+}
+
 // ==================== RENDERER ====================
 void EditorPanels::SectionRenderer(EditorState& state, Renderer& renderer) {
     if (!BeginSection("GPU", "Renderer")) return;
@@ -1363,11 +1421,45 @@ void EditorPanels::SectionRenderer(EditorState& state, Renderer& renderer) {
     PropertyLabel("Clear Color");
     ImGui::ColorEdit4("##clrclr", state.clearColor, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
 
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ---- FSR Upscaling ----
+    PropertyLabel("FSR Upscale");
+    if (ImGui::Checkbox("##fsr", &state.fsrEnabled)) state.fsrDirty = true;
+
+    if (state.fsrEnabled) {
+        PropertyLabel("FSR Quality");
+        {
+            const char* opts[] = {
+                FSRQualityName(FSRQuality::UltraQuality),
+                FSRQualityName(FSRQuality::Quality),
+                FSRQualityName(FSRQuality::Balanced),
+                FSRQualityName(FSRQuality::Performance)
+            };
+            if (ImGui::Combo("##fsrq", &state.fsrQuality, opts, 4))
+                state.fsrDirty = true;
+        }
+
+        PropertyLabel("Sharpness");
+        if (ImGui::SliderFloat("##fsrsharp", &state.fsrSharpness, 0.0f, 2.0f, "%.2f"))
+            state.fsrDirty = true;
+
+        // Show render resolution info
+        float scale = FSRQualityScale(static_cast<FSRQuality>(state.fsrQuality));
+        int rw = static_cast<int>(renderer.GetWidth()  * scale);
+        int rh = static_cast<int>(renderer.GetHeight() * scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, kTextDim);
+        ImGui::Text("  Render: %dx%d -> %dx%d", rw, rh, renderer.GetWidth(), renderer.GetHeight());
+        ImGui::PopStyleColor();
+    }
+
     EndSection();
 }
 
 // ==================== PERFORMANCE ====================
-void EditorPanels::SectionPerformance(Renderer& renderer, int fps, float dt) {
+void EditorPanels::SectionPerformance(EditorState& state, Renderer& renderer, int fps, float dt) {
     if (!BeginSection("SYS", "Performance", false)) return;
 
     const auto& stats = renderer.GetStats();
@@ -1390,6 +1482,17 @@ void EditorPanels::SectionPerformance(Renderer& renderer, int fps, float dt) {
     StatRow("Frame",      "%.2f ms", dt * 1000.0f);
     StatRow("Draw Calls", "%u", stats.drawCalls);
     StatRow("Triangles",  "%u", stats.triangles);
+
+    // Culling stats
+    if (state.cullingEnabled) {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        StatRow("Entities",       "%d", state.cullStatsTotal);
+        StatRow("Rendered",       "%d", state.cullStatsRendered);
+        StatRow("Frustum Culled", "%d", state.cullStatsFrustum);
+        StatRow("Stream Culled",  "%d", state.cullStatsDistance);
+    }
 
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_PlotLines, kAccent);

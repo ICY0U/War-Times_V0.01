@@ -15,6 +15,7 @@
 #include "Util/MathHelpers.h"
 #include "Core/ResourceManager.h"
 #include "PCG/LevelGenerator.h"
+#include "PCG/WarfieldGenerator.h"
 
 struct ImGuiContext;   // forward
 
@@ -106,9 +107,12 @@ public:
     void SaveCurrentLevel(EditorState& state);
     void LoadLevel(const std::string& path, EditorState& state);
     void NewLevel(EditorState& state);
+    void DeleteCurrentLevel(EditorState& state);
     const std::string& GetLevelsDirectory() const { return m_levelsDirectory; }
     const std::string& GetCurrentLevelPath() const { return m_currentLevelPath; }
     void SetCurrentLevelPath(const std::string& path) { m_currentLevelPath = path; }
+    const std::string& GetStatusMessage() const { return m_statusMessage; }
+    float GetStatusTimer() const { return m_statusTimer; }
 
     // Hot-swap: signal that the current editor scene should replace the game scene
     bool HasPendingHotSwap() const { return m_hotSwapPending; }
@@ -255,6 +259,8 @@ private:
     bool        m_hotSwapPending = false;
     bool        m_unsavedChanges = false;
     char        m_levelNameBuf[128] = {};  // For save-as input
+    std::string m_statusMessage;           // Feedback shown in UI (e.g. "Saved!")
+    float       m_statusTimer = 0.0f;      // Countdown for status message display
 
     // Placement
     MeshType    m_placeMeshType = MeshType::Cube;
@@ -263,6 +269,10 @@ private:
 
     // PCG Level Generator
     LevelGenSettings m_pcgSettings;
+    int m_pcgMode = 0;  // 0 = Urban, 1 = Warfield (massive)
+
+    // Warfield Generator
+    WarfieldSettings m_warfieldSettings;
 };
 
 } // namespace WT

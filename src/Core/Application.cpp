@@ -40,6 +40,12 @@ LRESULT Application::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                     m_renderer.OnResize(w, h);
                     m_postProcess.OnResize(m_renderer.GetDevice(), w, h);
                     m_ssao.OnResize(m_renderer.GetDevice(), w, h);
+                    m_fsrUpscaler.OnResize(m_renderer.GetDevice(), w, h);
+                    if (m_editorState.fsrEnabled) {
+                        int rw, rh;
+                        m_fsrUpscaler.GetRenderResolution(w, h, static_cast<FSRQuality>(m_editorState.fsrQuality), rw, rh);
+                        m_fsrUpscaler.UpdateRenderTarget(m_renderer.GetDevice(), rw, rh);
+                    }
                     m_camera.UpdateProjection(m_renderer.GetAspectRatio());
                 }
             }
@@ -56,6 +62,12 @@ LRESULT Application::HandleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                 m_renderer.OnResize(m_width, m_height);
                 m_postProcess.OnResize(m_renderer.GetDevice(), m_width, m_height);
                 m_ssao.OnResize(m_renderer.GetDevice(), m_width, m_height);
+                m_fsrUpscaler.OnResize(m_renderer.GetDevice(), m_width, m_height);
+                if (m_editorState.fsrEnabled) {
+                    int rw, rh;
+                    m_fsrUpscaler.GetRenderResolution(m_width, m_height, static_cast<FSRQuality>(m_editorState.fsrQuality), rw, rh);
+                    m_fsrUpscaler.UpdateRenderTarget(m_renderer.GetDevice(), rw, rh);
+                }
                 m_camera.UpdateProjection(m_renderer.GetAspectRatio());
             }
             return 0;
@@ -199,12 +211,14 @@ bool Application::Init(HINSTANCE hInstance, int width, int height) {
         LevelGenerator gen;
         gen.Generate(m_editorState.scene);
         m_editorState.entityDirty = true;
+        m_editorState.physicsRebuildRequested = true;
         LOG_INFO("PCG: Generated random level on launch (seed %u, %d entities)",
                  gen.GetUsedSeed(), m_editorState.scene.GetEntityCount());
     } else {
         // Start with a blank level (no entities)
         m_editorState.scene.Clear();
         m_editorState.entityDirty = true;
+        m_editorState.physicsRebuildRequested = true;
         LOG_INFO("Started with blank level");
     }
 
@@ -277,6 +291,9 @@ bool Application::InitGraphics() {
 
     // SSAO
     if (!m_ssao.Init(device, m_width, m_height, shaderDir)) return false;
+
+    // FSR upscaler
+    if (!m_fsrUpscaler.Init(device, m_width, m_height, shaderDir)) return false;
 
     // Init debug renderer
     if (!m_debugRenderer.Init(device, shaderDir)) return false;
@@ -507,7 +524,8 @@ void Application::Update(float dt) {
             }
         }
         if (needsColliderRebuild) {
-            m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+            m_editorState.physicsRebuildRequested = true;
+            m_sceneCuller.InvalidateBounds();
         }
     }
 
@@ -631,8 +649,11 @@ void Application::Update(float dt) {
     // ---- Physics World (must run BEFORE character update) ----
     m_physicsWorld.showDebug = m_editorState.physicsShowDebug;
 
-    // Rebuild static colliders every frame (handles spawns, moves, scale changes)
-    m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+    // Rebuild static colliders only when something changed (dirty flag)
+    if (m_editorState.physicsRebuildRequested) {
+        m_editorState.physicsRebuildRequested = false;
+        m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+    }
 
 
     // Sync physics settings
@@ -721,6 +742,7 @@ void Application::Update(float dt) {
                                 entity.voxelRes = 5;
                             }
                             entity.ResetVoxelMask();
+                            m_editorState.physicsRebuildRequested = true;
                         }
 
                         // Voxel chunk destruction: remove the hit cell only
@@ -744,8 +766,8 @@ void Application::Update(float dt) {
                                                                 entity.color, entity.materialType);
                                 m_particles.SpawnDebris(hit.hitPosition, chunkScale, entity.color, 4, 0.5f);
 
-                                // Rebuild colliders so player can walk/shoot through the hole
-                                m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+                                // Mark colliders dirty so player can walk/shoot through the hole
+                                m_editorState.physicsRebuildRequested = true;
                             }
 
                             // Destroy entity only when ALL voxel cells are gone
@@ -908,8 +930,8 @@ void Application::Update(float dt) {
                                 }
                             }
 
-                            // Rebuild physics colliders
-                            m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
+                            // Mark physics colliders dirty
+                            m_editorState.physicsRebuildRequested = true;
 
                             LOG_INFO("Entity destroyed!");
                         }
@@ -1012,6 +1034,36 @@ void Application::Update(float dt) {
         m_physicsWorld.RebuildStaticColliders(m_editorState.scene);
     }
 
+    // Handle ground mesh rebuild (after warfield generation resizes map)
+    if (m_editorState.groundRebuildRequested) {
+        m_editorState.groundRebuildRequested = false;
+        m_groundMesh.Release();
+        // Rebuild with new half-extent
+        using V = VertexPosNormalColor;
+        float s = m_editorState.groundHalfExtent;
+        XMFLOAT4 groundCol = { 0.35f, 0.55f, 0.28f, 1.0f };
+        std::vector<V> groundVerts = {
+            {{ -s, -0.05f,  s }, { 0, 1, 0 }, groundCol, {0,0} },
+            {{  s, -0.05f,  s }, { 0, 1, 0 }, groundCol, {1,0} },
+            {{  s, -0.05f, -s }, { 0, 1, 0 }, groundCol, {1,1} },
+            {{ -s, -0.05f, -s }, { 0, 1, 0 }, groundCol, {0,1} },
+        };
+        std::vector<UINT> groundIdx = { 0, 1, 2, 0, 2, 3 };
+        m_groundMesh.Create(m_renderer.GetDevice(), groundVerts, groundIdx);
+
+        // Also extend shadow distance and fog for massive maps
+        if (s > 100.0f) {
+            m_editorState.shadowDistance = s * 0.5f;
+            m_editorState.shadowDirty = true;
+            m_editorState.fogStart = s * 0.3f;
+            m_editorState.fogEnd = s * 0.9f;
+            m_editorState.cameraFarZ = s * 2.5f;
+            m_editorState.cameraDirty = true;
+            m_editorState.lightingDirty = true;
+        }
+        LOG_INFO("Ground mesh rebuilt: half-extent=%.0f", s);
+    }
+
     // Handle agent spawn request (selectedAgent == -2 means "spawn new")
     if (m_editorState.aiSelectedAgent == -2) {
         XMFLOAT3 spawnPos = { m_editorState.aiSpawnPos[0],
@@ -1041,6 +1093,17 @@ void Application::Update(float dt) {
         m_renderer.SetWireframe(m_editorState.wireframe);
         m_renderer.SetVSync(m_editorState.vsync);
         m_renderer.SetMSAA(m_editorState.msaaSamples);
+    }
+
+    // FSR upscaler state changes
+    if (m_editorState.fsrDirty) {
+        m_editorState.fsrDirty = false;
+        if (m_editorState.fsrEnabled) {
+            int rw, rh;
+            m_fsrUpscaler.GetRenderResolution(m_width, m_height,
+                static_cast<FSRQuality>(m_editorState.fsrQuality), rw, rh);
+            m_fsrUpscaler.UpdateRenderTarget(m_renderer.GetDevice(), rw, rh);
+        }
     }
 
     if (m_editorState.cameraDirty) {
@@ -1155,9 +1218,14 @@ void Application::Render() {
         m_groundMesh.Draw(ctx);
 
         // Shadow pass: Entities
+        // NOTE: Shadow shader only reads gWorld, not gWorldInvTranspose.
+        // Skip expensive XMMatrixInverse for shadow pass.
         for (int i = 0; i < m_editorState.scene.GetEntityCount(); i++) {
             const auto& e = m_editorState.scene.GetEntity(i);
             if (!e.visible || !e.castShadow) continue;
+
+            // Frustum + distance culling for shadow pass
+            if (m_editorState.cullingEnabled && !m_sceneCuller.IsVisibleShadow(i)) continue;
 
             // Voxel chunk shadow: draw each active cell
             if (e.voxelDestruction && e.meshType == MeshType::Cube) {
@@ -1169,7 +1237,6 @@ void Application::Render() {
                     if (!e.IsVoxelCellActive(idx)) continue;
                     XMMATRIX cellWorld = e.GetVoxelCellWorldMatrix(vx, vy, vz);
                     XMStoreFloat4x4(&objData.World, XMMatrixTranspose(cellWorld));
-                    XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, cellWorld));
                     m_cbPerObject.Update(ctx, objData);
                     m_cbPerObject.BindVS(ctx, 1);
                     m_cubeMesh.Draw(ctx);
@@ -1177,7 +1244,6 @@ void Application::Render() {
             } else {
                 XMMATRIX entWorld = e.GetWorldMatrix();
                 XMStoreFloat4x4(&objData.World, XMMatrixTranspose(entWorld));
-                XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, entWorld));
                 m_cbPerObject.Update(ctx, objData);
                 m_cbPerObject.BindVS(ctx, 1);
                 if (e.meshType == MeshType::Cube) {
@@ -1206,7 +1272,7 @@ void Application::Render() {
                                                        agent.position.z);
             XMMATRIX agentWorld = agentScale * agentRot * agentTrans;
             XMStoreFloat4x4(&objData.World, XMMatrixTranspose(agentWorld));
-            XMStoreFloat4x4(&objData.WorldInvTranspose, XMMatrixInverse(nullptr, agentWorld));
+            // Shadow shader doesn't read WorldInvTranspose — skip inverse
             m_cbPerObject.Update(ctx, objData);
             m_cbPerObject.BindVS(ctx, 1);
             m_cubeMesh.Draw(ctx);
@@ -1232,6 +1298,44 @@ void Application::Render() {
 
     XMMATRIX proj     = m_camera.GetProjectionMatrix();
     XMMATRIX viewProj = view * proj;
+
+    // ---- Frustum Culling & Level Streaming ----
+    {
+        int entityCount = m_editorState.scene.GetEntityCount();
+        float streamDist = (m_editorState.cullingEnabled && m_editorState.streamingEnabled)
+                           ? m_editorState.streamDistance : 0.0f;
+
+        // Invalidate cached bounds when scene structure changes
+        if (m_editorState.entityDirty) {
+            m_sceneCuller.InvalidateBounds();
+            m_editorState.entityDirty = false;
+        }
+
+        if (m_editorState.cullingEnabled) {
+            m_sceneCuller.Update(entityCount,
+                [this](int i) -> const Entity& { return m_editorState.scene.GetEntity(i); },
+                viewProj, m_camera.GetPosition(), streamDist);
+
+            // Shadow frustum culling
+            if (m_editorState.shadowsEnabled) {
+                m_sceneCuller.UpdateShadowFrustum(entityCount,
+                    [this](int i) -> const Entity& { return m_editorState.scene.GetEntity(i); },
+                    lightVP, m_camera.GetPosition(), m_editorState.shadowCullDistance);
+            }
+
+            // Update stats for editor display
+            auto& cs = m_sceneCuller.GetStats();
+            m_editorState.cullStatsTotal    = cs.totalEntities;
+            m_editorState.cullStatsFrustum  = cs.frustumCulled;
+            m_editorState.cullStatsDistance  = cs.distanceCulled;
+            m_editorState.cullStatsRendered  = cs.rendered;
+        } else {
+            m_editorState.cullStatsTotal    = entityCount;
+            m_editorState.cullStatsFrustum  = 0;
+            m_editorState.cullStatsDistance  = 0;
+            m_editorState.cullStatsRendered  = entityCount;
+        }
+    }
 
     CBPerFrame frameData = {};
     XMStoreFloat4x4(&frameData.View,           XMMatrixTranspose(view));
@@ -1350,6 +1454,9 @@ void Application::Render() {
         const auto& e = m_editorState.scene.GetEntity(i);
         if (!e.visible) continue;
 
+        // Frustum + distance culling
+        if (m_editorState.cullingEnabled && !m_sceneCuller.IsVisible(i)) continue;
+
         // Use damage-tinted color (darkens + flash on hit)
         float damagedColor[4];
         e.GetDamagedColor(damagedColor);
@@ -1366,22 +1473,18 @@ void Application::Render() {
         }
         objData.HitDecalCount = static_cast<float>(e.hitDecalCount);
 
-        // Bind texture once for this entity
-        if (e.meshType == MeshType::Cube) {
-            Texture* ct = nullptr;
+        // Bind texture once for this entity (uses cached pointer to avoid hash lookup)
+        if (e.textureCacheDirty) {
             if (!e.textureName.empty())
-                ct = ResourceManager::Get().GetTexture(e.textureName);
-            if (ct) ct->Bind(ctx, 1);
-            else if (whiteTex) whiteTex->Bind(ctx, 1);
-        } else if (e.meshType == MeshType::Custom) {
-            Texture* modelTex = nullptr;
-            if (!e.textureName.empty())
-                modelTex = ResourceManager::Get().GetTexture(e.textureName);
-            if (!modelTex)
-                modelTex = ResourceManager::Get().GetTexture(e.meshName);
-            if (modelTex) modelTex->Bind(ctx, 1);
-            else if (whiteTex) whiteTex->Bind(ctx, 1);
+                e.cachedTexture = ResourceManager::Get().GetTexture(e.textureName);
+            else if (e.meshType == MeshType::Custom && !e.meshName.empty())
+                e.cachedTexture = ResourceManager::Get().GetTexture(e.meshName);
+            else
+                e.cachedTexture = nullptr;
+            e.textureCacheDirty = false;
         }
+        Texture* boundTex = e.cachedTexture ? e.cachedTexture : whiteTex;
+        if (boundTex) boundTex->Bind(ctx, 1);
 
         // Voxel chunk rendering: draw each active cell as a sub-cube
         if (e.voxelDestruction && e.meshType == MeshType::Cube) {
@@ -1601,9 +1704,23 @@ void Application::Render() {
 
     // ---- Post-Processing: Apply bloom, vignette, color grading ----
     if (postProcessOn) {
-        // Composite post-processing to the back buffer
-        m_postProcess.Apply(ctx, m_renderer.GetBackBufferRTV(), m_postProcessSettings,
+        // When FSR is enabled, post-process outputs to FSR's render-res intermediate RTV
+        // Then FSR upscales that to the back buffer at native resolution
+        bool fsrActive = m_editorState.fsrEnabled && m_fsrUpscaler.GetRenderRTV();
+        ID3D11RenderTargetView* ppOutputRTV = fsrActive
+            ? m_fsrUpscaler.GetRenderRTV()
+            : m_renderer.GetBackBufferRTV();
+
+        // Composite post-processing
+        m_postProcess.Apply(ctx, ppOutputRTV, m_postProcessSettings,
                             m_renderer.GetDepthSRV());
+
+        if (fsrActive) {
+            // FSR upscale: render-res → native back buffer
+            m_fsrUpscaler.Apply(ctx, m_renderer.GetBackBufferRTV(),
+                                m_width, m_height,
+                                m_editorState.fsrSharpness);
+        }
 
         // Restore the renderer's render target for debug + ImGui
         ID3D11RenderTargetView* rtv = m_renderer.GetBackBufferRTV();
@@ -1741,6 +1858,7 @@ void Application::Shutdown() {
     m_debugRenderer.Shutdown();
     m_postProcess.Shutdown();
     m_ssao.Shutdown();
+    m_fsrUpscaler.Shutdown();
     m_shadowMap.Shutdown();
     m_defaultWhite.Release();
     m_groundMesh.Release();
