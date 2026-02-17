@@ -41,5 +41,33 @@
             "tooltip": "Configure CMake",
             "priority": 997
         }
+    ],
+    "actionButtons.buttons": [
+        {
+            "name": "Build",
+            "command": "cmake --build build",
+            "icon": "tools",
+            "backgroundColor": "yellow"
+        },
+        {
+            "name": "Build & Run",
+            "command": ".\\build\\bin\\WarTimes.exe",
+            "icon": "run-all",
+            "backgroundColor": "red"
+        },
+        {
+            "name": "Terminal",
+            "commandType": "vscode",
+            "command": "actionButtons.toggleTerminalPanel",
+            "icon": "terminal",
+            "backgroundColor": "teal"
+        },
+        {
+            "name": "Chat",
+            "commandType": "vscode",
+            "command": "workbench.action.chat.toggle",
+            "icon": "comment-discussion",
+            "backgroundColor": "purple"
+        }
     ]
 }
